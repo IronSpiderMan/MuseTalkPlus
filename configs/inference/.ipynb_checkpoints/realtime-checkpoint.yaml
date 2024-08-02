@@ -1,0 +1,6 @@
+avator_1:
+  preparation: False
+  bbox_shift: 5
+  video_path: "./data/video/zack.mp4"
+  audio_clips:
+    audio_0: "./data/audio/zack.mp3"

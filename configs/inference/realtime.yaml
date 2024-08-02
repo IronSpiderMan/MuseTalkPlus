@@ -1,0 +1,12 @@
+#avator_1:
+#  preparation: False
+#  bbox_shift: 5
+#  video_path: "./data/video/zack.mp4"
+#  audio_clips:
+#    audio_0: "./data/audio/00000002.mp3"
+tjl:
+  preparation: False
+  bbox_shift: 8
+  video_path: ./data/video/tjl.mp4
+  audio_clips:
+    audio_0: ./data/audio/00000002.mp3
