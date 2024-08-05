@@ -2,6 +2,8 @@ import os
 import sys
 import random
 
+from torchvision.transforms import transforms
+
 sys.path.append('.')
 
 import cv2
@@ -24,6 +26,7 @@ class MuseTalkDataset(Dataset):
 
         self.whisper_feature_W = 50
         self.whisper_feature_H = 384
+        self.transform = transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
         self.load_filenames()
 
     @staticmethod
@@ -54,12 +57,26 @@ class MuseTalkDataset(Dataset):
         if frame_idx - self.audio_window < 0 or frame_idx + self.audio_window == len(
                 self.all_data[video_name]['audio_files']) - 1:
             return None
-        file_lists = [self.all_data[video_name]['audio_files'][idx] for idx in
-                      range(frame_idx - self.audio_window, frame_idx + self.audio_window + 1)]
-        results = np.zeros((len(file_lists), self.whisper_feature_W, self.whisper_feature_H))
-        for idx, file in enumerate(file_lists):
+        file_list = [self.all_data[video_name]['audio_files'][idx] for idx in
+                     range(frame_idx - self.audio_window, frame_idx + self.audio_window + 1)]
+        results = np.zeros((len(file_list), self.whisper_feature_W, self.whisper_feature_H))
+        for idx, file in enumerate(file_list):
             results[idx, ::] = np.load(file)
         return torch.FloatTensor(results.reshape(-1, self.whisper_feature_H))
+
+    def load_frame_with_previous(self, video_name, frame_idx: int):
+        # 读取前一张和当前图像
+        file_list = [
+            self.all_data[video_name]['image_files'][frame_idx - 1],
+            self.all_data[video_name]['image_files'][frame_idx],
+        ]
+        images = []
+        for file in file_list:
+            image = cv2.imread(file)
+            image = cv2.resize(image, (RESIZED_IMG, RESIZED_IMG))
+            image = torch.tensor(np.transpose(image / 255., (2, 0, 1)))
+            images.append(image)
+        return images
 
     @staticmethod
     def filename2num(filepath):
@@ -72,26 +89,25 @@ class MuseTalkDataset(Dataset):
         # 随机选一个视频
         video_name = random.choice(list(self.all_data.keys()))
         video_data = self.all_data[video_name]
-        # 选一张图片
-        image_file = random.choice(video_data['image_files'])
-        target_image = cv2.imread(image_file)
-        target_image = cv2.resize(target_image, (RESIZED_IMG, RESIZED_IMG))
-        target_image = torch.tensor(np.transpose(target_image / 255., (2, 0, 1)))
+        # TODO masked_image应该使用非target_image旁边的图像，因为在推理时我们不知道target_image
+        # 在1-len(images)范围选一张图片
+        frame_idx = random.randint(1, len(video_data['image_files']))
+        target_image, previous_image = self.load_frame_with_previous(video_name, frame_idx)
         # 创建mask
         mask = torch.zeros((target_image.shape[1], target_image.shape[2]))
         mask[:target_image.shape[1] // 2, :] = 1
         # 创建遮罩后的图像
         masked_image = target_image * mask
         # 获取对应音频即window中的音频
-        audio_feature = self.load_audio_feature_with_window(video_name, self.filename2num(image_file))
-        return target_image, masked_image, audio_feature
+        audio_feature = self.load_audio_feature_with_window(video_name, frame_idx)
+        return self.transform(target_image), self.transform(previous_image), self.transform(masked_image), audio_feature
 
 
 if __name__ == "__main__":
     val_data = MuseTalkDataset()
     dataloader = DataLoader(val_data, batch_size=1)
     for i in dataloader:
-        ti, mi, af = i
+        ti, pi, mi, af = i
         print(ti.shape)
         print(mi.shape)
         print(af.shape)
