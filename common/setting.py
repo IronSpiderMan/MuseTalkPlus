@@ -19,3 +19,6 @@ UNET_PATH = Path("./models/musetalk")
 UNET_CONFIG_PATH = UNET_PATH / "musetalk.json"
 VAE_PATH = Path("./models/sd-vae-ft-mse")
 DWPOST_PATH = Path("./models/dwpose/dw-ll_ucoco_384.pth")
+
+# 训练相关
+TRAIN_OUTPUT_DIR = Path("./outputs/ckpts")

@@ -1,60 +1,72 @@
 import json
+import os
+
 import torch
-import tqdm
+from tqdm import tqdm
 from torch import optim
-from diffusers import AutoencoderKL, UNet2DConditionModel
-from torch.utils.data import DataLoader
 import torch.nn.functional as F
-import torchvision.transforms as transforms
-from musetalk.models.unet import PositionalEncoding
-from common.setting import VAE_PATH, UNET_CONFIG_PATH
+from torch.utils.data import DataLoader
+from diffusers import AutoencoderKL, UNet2DConditionModel
+
 from train.datasets import MuseTalkDataset
+from common.setting import VAE_PATH, UNET_CONFIG_PATH, TRAIN_OUTPUT_DIR
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
-transform = transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
-
-# 加载数据
-train_dataset = MuseTalkDataset()
-train_loader = DataLoader(train_dataset, batch_size=8)
-# 加载模型
 vae = AutoencoderKL.from_pretrained(VAE_PATH, subfolder="vae").to(device)
-with open(UNET_CONFIG_PATH, "r") as f:
-    unet_config = json.load(f)
-unet = UNet2DConditionModel(**unet_config).to(device)
-pe = PositionalEncoding(d_model=384).to(device)
-# 创建优化器
-optimizer = optim.AdamW(
-    unet.parameters(),
-    lr=5e-6,
-    betas=(0.9, 0.999),
-    weight_decay=1e-2,
-    eps=1e-08
-)
-for idx, (target_image, ref_image, masked_image, mask, audio_feature) in tqdm.tqdm(enumerate(train_loader)):
-    target_image = transform(target_image).to(device, dtype=torch.float32)
-    ref_image = transform(ref_image).to(device, dtype=torch.float32)
-    masked_image = transform(masked_image).to(device, dtype=torch.float32)
 
-    latents = vae.encode(target_image).latent_dist.sample()
-    latents = latents * vae.config.scaling_factor
 
-    masked_latents = vae.encode(masked_image).latent_dist.sample()
-    masked_latents = masked_latents * vae.config.scaling_factor
+def train(model, device, train_loader, optimizer, epoch):
+    iters = 0
+    for epoch in tqdm(range(epoch)):
+        for batch_idx, (target_image, previous_image, masked_image, audio_feature) in tqdm(enumerate(train_loader)):
+            target_image, masked_image, audio_feature = (
+                target_image.to(device),
+                masked_image.to(device),
+                audio_feature.to(device)
+            )
+            # 获取目标的latents
+            latents = vae.encode(target_image).latent_dist.sample()
+            latents = latents * vae.config.scaling_factor
+            # 获取输入的latents
+            masked_latents = vae.encode(masked_image).latent_dist.sample()
+            masked_latents = masked_latents * vae.config.scaling_factor
+            # 获取邻近图像的latents
+            previous_image = vae.encode(previous_image).latent_dist.sample()
+            previous_image = previous_image * vae.config.scaling_factor
+            # 拼接输入
+            latent_model_input = torch.cat([masked_latents, previous_image], dim=1)
 
-    ref_latents = vae.encode(ref_image).latent_dist.sample()
-    ref_latents = ref_latents * vae.config.scaling_factor
+            image_pred = model(latent_model_input, 0, encoder_hidden_states=audio_feature.to(device)).sample
+            loss = F.mse_loss(image_pred.float(), latents.float(), reduction="mean")
+            loss.backward()
+            optimizer.step()
+            optimizer.zero_grad()
+            if batch_idx % 50 == 0:
+                print(f"epoch: {epoch + 1}, iters: {batch_idx}, loss: {loss.item()}")
+            iters += 1
+        torch.save(model.state_dict(), TRAIN_OUTPUT_DIR / f'musetalk--epoch--{epoch}--iters--{iters}.pt')
 
-    latent_model_input = torch.cat([masked_latents, ref_latents], dim=1)
 
-    image_pred = unet(latent_model_input, 0, encoder_hidden_states=audio_feature.to(device)).sample
+def main():
+    # 加载数据
+    train_dataset = MuseTalkDataset()
+    train_loader = DataLoader(train_dataset, batch_size=8)
+    os.makedirs(TRAIN_OUTPUT_DIR, exist_ok=True)
+    # 加载模型
+    with open(UNET_CONFIG_PATH, "r") as f:
+        unet_config = json.load(f)
+    unet = UNet2DConditionModel(**unet_config).to(device)
+    unet.train()
+    # 创建优化器
+    optimizer = optim.AdamW(
+        unet.parameters(),
+        lr=5e-6,
+        betas=(0.9, 0.999),
+        weight_decay=1e-2,
+        eps=1e-08
+    )
+    train(unet, device, train_loader, optimizer, epoch=10)
 
-    loss = F.mse_loss(image_pred.float(), latents.float(), reduction="mean")
 
-    loss.backward()
-    optimizer.step()
-    optimizer.zero_grad()
-    logs = {"loss": loss.detach().item()}
-    # 保存模型参数
-    print(logs)
-    if (idx + 1) % 10 == 0:
-        torch.save(unet.state_dict(), f'musetalk--{idx}.pth')
+if __name__ == '__main__':
+    main()
