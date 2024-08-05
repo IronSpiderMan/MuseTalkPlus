@@ -1,3 +1,7 @@
-.ipynb_checkpoints
-__pycache__
+__pycache__/
 .idea
+.ipynb_checkpoints
+datasets
+data
+results
+models
