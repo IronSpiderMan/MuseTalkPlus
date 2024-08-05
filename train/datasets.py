@@ -72,7 +72,7 @@ class MuseTalkDataset(Dataset):
         for file in file_list:
             image = cv2.imread(file)
             image = cv2.resize(image, (RESIZED_IMG, RESIZED_IMG))
-            image = torch.tensor(np.transpose(image / 255., (2, 0, 1)))
+            image = torch.FloatTensor(np.transpose(image / 255., (2, 0, 1)))
             images.append(image)
         return images
 
