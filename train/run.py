@@ -16,14 +16,19 @@ from common.setting import VAE_PATH, UNET_CONFIG_PATH, TRAIN_OUTPUT_DIR
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 vae = AutoencoderKL.from_pretrained(VAE_PATH, subfolder="vae").to(device)
+# 加载模型
+with open(UNET_CONFIG_PATH, "r") as f:
+    unet_config = json.load(f)
+unet = UNet2DConditionModel(**unet_config).to(device)
 
 
 def train(model, device, train_loader, optimizer, epoch):
     iters = 0
     for epoch in tqdm(range(epoch)):
         for batch_idx, (target_image, previous_image, masked_image, audio_feature) in tqdm(enumerate(train_loader)):
-            target_image, masked_image, audio_feature = (
+            target_image, previous_image, masked_image, audio_feature = (
                 target_image.to(device),
+                previous_image.to(device),
                 masked_image.to(device),
                 audio_feature.to(device)
             )
@@ -55,11 +60,6 @@ def main():
     train_dataset = MuseTalkDataset()
     train_loader = DataLoader(train_dataset, batch_size=8)
     os.makedirs(TRAIN_OUTPUT_DIR, exist_ok=True)
-    # 加载模型
-    with open(UNET_CONFIG_PATH, "r") as f:
-        unet_config = json.load(f)
-    unet = UNet2DConditionModel(**unet_config).to(device)
-    unet.train()
     # 创建优化器
     optimizer = optim.AdamW(
         unet.parameters(),
