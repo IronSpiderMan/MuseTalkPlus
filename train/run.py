@@ -1,5 +1,8 @@
-import json
 import os
+import sys
+import json
+
+sys.path.append('.')
 
 import torch
 from tqdm import tqdm

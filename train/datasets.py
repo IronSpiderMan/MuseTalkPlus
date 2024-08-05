@@ -2,15 +2,13 @@ import os
 import sys
 import random
 
-from torchvision.transforms import transforms
-
 sys.path.append('.')
 
 import cv2
 import torch
 import numpy as np
 from torch.utils.data import DataLoader, Dataset
-
+from torchvision.transforms import transforms
 from common.setting import AUDIO_FEATURE_DIR, VIDEO_FRAME_DIR
 
 RESIZED_IMG = 256
