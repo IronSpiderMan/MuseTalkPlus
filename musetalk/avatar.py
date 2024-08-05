@@ -236,9 +236,11 @@ class Avatar:
             ).sample
             recon = self.vae.decode_latents(pred_latents)
             for res_frame in recon:
-                combine_frame = self.process_frame(res_frame,
-                                                   "start" if frame_idx == 0 else None if frame_idx == len(
-                                                       recon) - 1 else "end")
+                combine_frame = self.process_frame(
+                    res_frame,
+                    "start" if frame_idx == 0 else None if frame_idx == len(
+                        recon) - 1 else "end"
+                )
                 if not realtime:
                     cv2.imwrite(str(self.avatar_path / "tmp" / f"{str(frame_idx).zfill(8)}.png"), combine_frame)
                 frame_idx += 1
