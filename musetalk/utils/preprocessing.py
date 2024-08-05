@@ -1,58 +1,24 @@
 import pickle
-from functools import partial
-from concurrent.futures import ThreadPoolExecutor
 
-import cv2
 import torch
 import numpy as np
 from tqdm import tqdm
 from mmpose.structures import merge_data_samples
 from mmpose.apis import inference_topdown, init_model
 from face_detection import FaceAlignment, LandmarksType
+from common.setting import DWPOST_PATH
+from common.utils import read_images
 
 # initialize the mmpose model
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = "cuda" if torch.cuda.is_available() else "cpu"
 config_file = './musetalk/utils/dwpose/rtmpose-l_8xb32-270e_coco-ubody-wholebody-384x288.py'
-checkpoint_file = './models/dwpose/dw-ll_ucoco_384.pth'
-model = init_model(config_file, checkpoint_file, device=device)
+model = init_model(config_file, str(DWPOST_PATH), device=device)
 
 # initialize the face detection model
-device = "cuda" if torch.cuda.is_available() else "cpu"
 fa = FaceAlignment(LandmarksType._2D, flip_input=False, device=device)
 
 # maker if the bbox is not sufficient 
 coord_placeholder = (0.0, 0.0, 0.0, 0.0)
-
-
-def resize_landmark(landmark, w, h, new_w, new_h):
-    w_ratio = new_w / w
-    h_ratio = new_h / h
-    landmark_norm = landmark / [w, h]
-    landmark_resized = landmark_norm * [new_w, new_h]
-    return landmark_resized
-
-
-def read_imgs(img_list):
-    frames = []
-    print('reading images...')
-    for img_path in tqdm(img_list):
-        frame = cv2.imread(img_path)
-        frames.append(frame)
-    return frames
-
-
-def read_images(img_list, grayscale=False):
-    print("reading images using OpenCV asynchronously in grayscale...")
-    frames = []
-    with ThreadPoolExecutor() as executor:
-        # Use partial to fix the flags parameter for cv2.imread
-        if grayscale:
-            imread = partial(cv2.imread, cv2.IMREAD_GRAYSCALE)
-        else:
-            imread = cv2.imread
-        for frame in tqdm(executor.map(imread, img_list)):
-            frames.append(frame)
-    return frames
 
 
 def get_bbox_range(img_list, upperbondrange=0):
@@ -95,13 +61,13 @@ def get_bbox_range(img_list, upperbondrange=0):
     return text_range
 
 
-def get_landmark_and_bbox(img_list, upperbondrange=0):
+def get_landmark_and_bbox(img_list, upperbound_range=0):
     frames = read_images(img_list)
     batch_size_fa = 1
     batches = [frames[i:i + batch_size_fa] for i in range(0, len(frames), batch_size_fa)]
     coords_list = []
-    if upperbondrange != 0:
-        print('get key_landmark and face bounding boxes with the bbox_shift:', upperbondrange)
+    if upperbound_range != 0:
+        print('get key_landmark and face bounding boxes with the bbox_shift:', upperbound_range)
     else:
         print('get key_landmark and face bounding boxes with the default value')
     average_range_minus = []
@@ -128,8 +94,8 @@ def get_landmark_and_bbox(img_list, upperbondrange=0):
             range_plus = (face_land_mark[29] - face_land_mark[28])[1]
             average_range_minus.append(range_minus)
             average_range_plus.append(range_plus)
-            if upperbondrange != 0:
-                half_face_coord[1] = upperbondrange + half_face_coord[1]  # 手动调整  + 向下（偏29）  - 向上（偏28）
+            if upperbound_range != 0:
+                half_face_coord[1] = upperbound_range + half_face_coord[1]  # 手动调整  + 向下（偏29）  - 向上（偏28）
             half_face_dist = np.max(face_land_mark[:, 1]) - half_face_coord[1]
             upper_bond = half_face_coord[1] - half_face_dist
 
@@ -140,7 +106,6 @@ def get_landmark_and_bbox(img_list, upperbondrange=0):
 
             if y2 - y1 <= 0 or x2 - x1 <= 0 or x1 < 0:  # if the landmark bbox is not suitable, reuse the bbox
                 coords_list += [f]
-                w, h = f[2] - f[0], f[3] - f[1]
                 print("error bbox:", f)
             else:
                 coords_list += [f_landmark]
@@ -148,13 +113,13 @@ def get_landmark_and_bbox(img_list, upperbondrange=0):
     print(
         "********************************************bbox_shift parameter adjustment**********************************************************")
     print(
-        f"Total frame:「{len(frames)}」 Manually adjust range : [ -{int(sum(average_range_minus) / len(average_range_minus))}~{int(sum(average_range_plus) / len(average_range_plus))} ] , the current value: {upperbondrange}")
+        f"Total frame:「{len(frames)}」 Manually adjust range : [ -{int(sum(average_range_minus) / len(average_range_minus))}~{int(sum(average_range_plus) / len(average_range_plus))} ] , the current value: {upperbound_range}")
     print(
         "*************************************************************************************************************************************")
     return coords_list, frames
 
 
-if __name__ == "__main__":
+def main():
     img_list = ["./results/lyria/00000.png", "./results/lyria/00001.png", "./results/lyria/00002.png",
                 "./results/lyria/00003.png"]
     crop_coord_path = "./coord_face.pkl"
@@ -171,3 +136,7 @@ if __name__ == "__main__":
 
         # cv2.imwrite(path.join(save_dir, '{}.png'.format(i)),full_frames[i][0][y1:y2, x1:x2])
     print(coords_list)
+
+
+if __name__ == "__main__":
+    main()

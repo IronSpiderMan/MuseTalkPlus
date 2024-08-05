@@ -1,12 +1,13 @@
-import os, random, cv2
+import os
+import random
 
+import cv2
 import torch
 import numpy as np
 from torch.utils.data import DataLoader, Dataset
 
-from setting import AUDIO_FEATURE_DIR, VIDEO_FRAME_DIR
+from common.setting import AUDIO_FEATURE_DIR, VIDEO_FRAME_DIR
 
-syncnet_T = 1
 RESIZED_IMG = 256
 
 connections = [
@@ -29,23 +30,15 @@ class MuseTalkDataset(Dataset):
             self,
             use_audio_length_left=1,
             use_audio_length_right=1,
-            whisper_model_type="tiny"
     ):
         self.all_data = {}
         self.audio_feature = [use_audio_length_left, use_audio_length_right]
-        self.whisper_model_type = whisper_model_type
         self.use_audio_length_left = use_audio_length_left
         self.use_audio_length_right = use_audio_length_right
         self.audio_window = 1
 
-        if self.whisper_model_type == "tiny":
-            self.whisper_path = './models/whisper'
-            self.whisper_feature_W = 5
-            self.whisper_feature_H = 384
-        elif self.whisper_model_type == "largeV2":
-            self.whisper_path = '...'
-            self.whisper_feature_W = 33
-            self.whisper_feature_H = 1280
+        self.whisper_feature_W = 5
+        self.whisper_feature_H = 384
         self.whisper_feature_concateW = self.whisper_feature_W * 2 * (
                 self.use_audio_length_left + self.use_audio_length_right + 1)  # 5*2*（2+2+1）= 50
         self.load_filenames()
@@ -74,19 +67,14 @@ class MuseTalkDataset(Dataset):
                 )
         return self.all_data
 
-    def load_frame_with_window(self, video_name, frame_idx: int):
-        file_lists = [self.all_data[video_name]['image_files'][idx] for idx in
-                      range(frame_idx, frame_idx + syncnet_T)]
-        results = np.zeros((len(file_lists), RESIZED_IMG, RESIZED_IMG, 3), dtype=np.uint8)
-        for idx, file in enumerate(file_lists):
-            img = cv2.imread(file)
-            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-            img = cv2.resize(img, (RESIZED_IMG, RESIZED_IMG))
-            results[idx, ::] = img
-        return torch.tensor(np.transpose(results / 255., (0, 3, 1, 2)))
+    def load_frame(self, filename):
+        img = cv2.imread(filename)
+        img = cv2.resize(img, (RESIZED_IMG, RESIZED_IMG))
+        return torch.tensor(np.transpose(img / 255., (0, 3, 1, 2)))
 
     def load_audio_feature_with_window(self, video_name, frame_idx: int):
-        if frame_idx == 0 or frame_idx == len(self.all_data[video_name]['audio_files']) - 1:
+        if frame_idx - self.audio_window < 0 or frame_idx + self.audio_window == len(
+                self.all_data[video_name]['audio_files']) - 1:
             return None
         file_lists = [self.all_data[video_name]['audio_files'][idx] for idx in
                       range(frame_idx - self.audio_window, frame_idx + self.audio_window + 1)]
@@ -101,7 +89,6 @@ class MuseTalkDataset(Dataset):
 
     def __len__(self):
         return min([len(self.all_data[video_name]['image_files']) for video_name in self.all_data.keys()])
-        # return len(self.all_data)
 
     def __getitem__(self, idx):
         # 随机选一个视频
@@ -109,38 +96,22 @@ class MuseTalkDataset(Dataset):
         video_data = self.all_data[video_name]
         # 选一张图片
         image_file = random.choice(video_data['image_files'])
-        image_idx = int(os.path.basename(image_file).split(".")[0])
-        # 选一张邻近图片
-        ref_image_idx = random.randint(
-            max(0, image_idx - 5),
-            min(len(video_data['image_files']) - 1, image_idx + 5)
-        )
-        target_image = self.load_frame_with_window(video_name, image_idx)
-        ref_image = self.load_frame_with_window(video_name, ref_image_idx)
+        target_image = self.load_frame(image_file)
         # 创建mask
-        mask = torch.zeros((ref_image.shape[2], ref_image.shape[3]))
-        mask[:ref_image.shape[2] // 2, :] = 1
-        # 对图片mask
-        mask[mask < 0.5] = 0
-        mask[mask >= 0.5] = 1
+        mask = torch.zeros((image_file.shape[1], image_file.shape[2]))
+        mask[:target_image.shape[1] // 2, :] = 1
+        cv2.imwrite("1.png", mask.numpy() * 255)
         # 创建遮罩后的图像
         masked_image = target_image * (mask > 0.5)
         # 获取对应音频即window中的音频
-        audio_feature = self.load_audio_feature_with_window(video_name, image_idx)
-        # print(f"{'*' * 10} 各个数据的形状 {'*' * 10}")
-        # print("target_image: ", target_image.shape)
-        # print("ref_image: ", ref_image.shape)
-        # print("masked_image: ", masked_image.shape)
-        # print("mask: ", mask.shape)
-        # print("audio_feature: ", audio_feature.shape)
-        return target_image[0], ref_image[0], masked_image[0], mask, audio_feature
+        audio_feature = self.load_audio_feature_with_window(video_name, self.filename2num(image_file))
+        return target_image[0], masked_image[0], mask, audio_feature
 
 
 if __name__ == "__main__":
     val_data = MuseTalkDataset(
         use_audio_length_left=2,
         use_audio_length_right=2,
-        whisper_model_type="tiny"
     )
     dataloader = DataLoader(val_data, batch_size=1)
     for i in dataloader:

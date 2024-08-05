@@ -1,32 +1,17 @@
-import sys
-import time
-
-sys.path.append('.')
 import torch
 import numpy as np
 
+from common.utils import timeit
+from common.setting import WHISPER_PATH
 from musetalk.whisper.whisper import Whisper, ModelDimensions
-
-
-def timeit(func):
-    def inner(*args, **kwargs):
-        start = time.time()
-        result = func(*args, **kwargs)
-        end = time.time()
-        print(f"{func.__name__} speed: {(end - start) * 1000:.2f} ms")
-        return result
-
-    return inner
 
 
 class AudioFeatureExtractor:
     def __init__(
             self,
-            whisper_model_type="tiny",
-            model_path="./models/whisper/tiny.pt",
+            model_path=WHISPER_PATH,
             device="auto"
     ):
-        self.whisper_model_type = whisper_model_type
         self.device = self.auto_device(device)
         self.model_path = model_path
         self.model = self.load_model()
@@ -68,7 +53,7 @@ class AudioFeatureExtractor:
         print(f"video in {fps} FPS, audio idx in 50FPS")
         while True:
             start_idx = int(i * whisper_idx_multiplier)
-            selected_feature, selected_idx = self.get_seliced_feature(
+            selected_feature, selected_idx = self.get_sliced_feature(
                 feature, i,
                 feature_length,
                 fps
@@ -80,7 +65,7 @@ class AudioFeatureExtractor:
         return whisper_chunks
 
     @staticmethod
-    def get_seliced_feature(feature, vid_idx, audio_feat_length=(2, 2), fps=26):
+    def get_sliced_feature(feature, vid_idx, audio_feat_length=(2, 2), fps=26):
         center_idx = int(vid_idx * 50 / fps)
         left_idx = center_idx - audio_feat_length[0] * 2
         right_idx = center_idx + (audio_feat_length[1] + 1) * 2

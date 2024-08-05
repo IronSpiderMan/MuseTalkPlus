@@ -42,4 +42,3 @@ class UNet:
         if use_float16:
             self.model = self.model.half()
         self.model.to(self.device)
-        # self.model = torch.compile(self.model, mode="reduce-overhead", fullgraph=True)

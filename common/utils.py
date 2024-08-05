@@ -39,6 +39,11 @@ def make_multiple_dirs(path_list):
         os.makedirs(path) if not os.path.exists(path) else None
 
 
+def remove_multiple_dirs(path_list):
+    for path in path_list:
+        os.removedirs(path) if os.path.exists(path) else None
+
+
 def read_images(img_list, grayscale=False):
     print("reading images using OpenCV asynchronously in grayscale...")
     frames = []

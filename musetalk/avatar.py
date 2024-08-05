@@ -15,14 +15,14 @@ import torch
 import numpy as np
 from tqdm import tqdm
 
-from setting import AVATAR_DIR
+from common.setting import AVATAR_DIR
 from musetalk.utils.utils import pronounce, datagen
 from musetalk.utils.blending import get_image_prepare_material, get_image_blending
 from musetalk.utils.preprocessing import get_landmark_and_bbox
-from utils import make_multiple_dirs, read_images, video2images
 from musetalk.models.vae import VAE
 from musetalk.models.unet import UNet, PositionalEncoding
 from musetalk.whisper.audio_feature_extractor import AudioFeatureExtractor
+from common.utils import make_multiple_dirs, read_images, video2images
 
 
 @torch.no_grad()

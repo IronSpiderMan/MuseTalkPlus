@@ -6,24 +6,19 @@ from diffusers import AutoencoderKL, UNet2DConditionModel
 from torch.utils.data import DataLoader
 import torch.nn.functional as F
 import torchvision.transforms as transforms
-import sys
-
-from triton.language import dtype
-
-sys.path.append('.')
 from musetalk.models.unet import PositionalEncoding
-from myloader import MuseTalkDataset
+from common.setting import VAE_PATH, UNET_CONFIG_PATH
+from train.datasets import MuseTalkDataset
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 transform = transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
 
 # 加载数据
 train_dataset = MuseTalkDataset()
-# train_loader = DataLoader(train_dataset, collate_fn=lambda x: x[0])
 train_loader = DataLoader(train_dataset, batch_size=8)
 # 加载模型
-vae = AutoencoderKL.from_pretrained("./models/sd-vae-ft-mse", subfolder="vae").to(device)
-with open("./models/musetalk/musetalk.json", "r") as f:
+vae = AutoencoderKL.from_pretrained(VAE_PATH, subfolder="vae").to(device)
+with open(UNET_CONFIG_PATH, "r") as f:
     unet_config = json.load(f)
 unet = UNet2DConditionModel(**unet_config).to(device)
 pe = PositionalEncoding(d_model=384).to(device)
@@ -36,9 +31,6 @@ optimizer = optim.AdamW(
     eps=1e-08
 )
 for idx, (target_image, ref_image, masked_image, mask, audio_feature) in tqdm.tqdm(enumerate(train_loader)):
-    # target_image = preprocess_img_tensor(target_image).to(device)
-    # ref_image = preprocess_img_tensor(ref_image).to(device)
-    # masked_image = preprocess_img_tensor(masked_image).to(device)
     target_image = transform(target_image).to(device, dtype=torch.float32)
     ref_image = transform(ref_image).to(device, dtype=torch.float32)
     masked_image = transform(masked_image).to(device, dtype=torch.float32)

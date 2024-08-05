@@ -5,7 +5,7 @@ import gradio as gr
 
 from musetalk.avatar import Avatar
 from musetalk.utils.utils import load_all_model
-from setting import AVATAR_DIR
+from common.setting import AVATAR_DIR
 
 whisper, vae, unet, pe = load_all_model()
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

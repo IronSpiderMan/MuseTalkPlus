@@ -8,7 +8,6 @@ import pandas as pd
 import tempfile
 import subprocess
 
-
 ffmpeg_path = os.getenv('FFMPEG_PATH')
 if ffmpeg_path is None:
     print(
@@ -46,7 +45,7 @@ voices = pd.DataFrame([
 
 
 def load_all_model():
-    audio_feature_extractor = AudioFeatureExtractor(model_path="./models/whisper/tiny.pt")
+    audio_feature_extractor = AudioFeatureExtractor()
     vae = VAE(model_path="./models/sd-vae-ft-mse/")
     unet = UNet(
         unet_config="./models/musetalk/musetalk.json",
