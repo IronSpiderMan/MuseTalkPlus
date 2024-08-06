@@ -34,7 +34,7 @@ class Avatar:
             pe: PositionalEncoding,
             whisper: AudioFeatureExtractor,
             avatar_id: str,
-            video_path: str | None = None,
+            video_path: str = '',
             fps: int = 25,
             bbox_shift: int = 8,
             batch_size: int = 4,
