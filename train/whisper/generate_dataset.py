@@ -115,8 +115,8 @@ async def main():
     # languages = ['zh-CN', 'en-US', 'en-GB']
     languages = ['zh-CN']
     args = parse_args()
-    current_dir = Path(__file__).resolve()
-    basedir = current_dir.parent.parent.parent
+    current_dir = Path(__file__).resolve().parent
+    basedir = current_dir.parent.parent
     audio_dir = basedir / 'datasets' / args.dataset_name / 'audio'
     os.makedirs(audio_dir, exist_ok=True)
     filepath = args.filepath
