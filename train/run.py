@@ -52,7 +52,8 @@ def train(model, device, train_loader, optimizer, epoch):
             if batch_idx % 50 == 0:
                 print(f"epoch: {epoch + 1}, iters: {batch_idx}, loss: {loss.item()}")
             iters += 1
-        torch.save(model.state_dict(), TRAIN_OUTPUT_DIR / f'musetalk--epoch--{epoch}--iters--{iters}.pt')
+            if (iters + 1) % 100 == 0:
+                torch.save(model.state_dict(), TRAIN_OUTPUT_DIR / f'musetalk--iters--{iters + 1}.pt')
 
 
 def main():
