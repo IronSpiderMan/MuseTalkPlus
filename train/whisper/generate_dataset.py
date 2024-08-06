@@ -141,7 +141,7 @@ async def main():
             })
             progress_bar.update(1)
         progress_bar.close()
-    pd.DataFrame(datas).drop_duplicates().to_csv(os.path.join(args.dataset_name, 'dataset.csv'), index=False)
+    pd.DataFrame(datas).drop_duplicates().to_csv(audio_dir.parent / 'dataset.csv', index=False)
 
 
 if __name__ == '__main__':

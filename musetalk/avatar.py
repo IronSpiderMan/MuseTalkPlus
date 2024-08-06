@@ -196,7 +196,7 @@ class Avatar:
             self,
             audio_path: str,
             text: str,
-            out_vid_name: str | None = None,
+            out_vid_name: str = None,
             fps: int = 25,
             realtime=False
     ):
@@ -261,7 +261,7 @@ class Avatar:
             print(f"result is save to {output_vid}")
         print("\n")
 
-    def process_frame(self, frame, flag: Literal['start', 'end'] | None = None):
+    def process_frame(self, frame, flag: Literal['start', 'end'] = None):
         current_idx = self.increase_idx()
         bbox = self.coord_list_cycle[current_idx]
         x1, y1, x2, y2 = bbox

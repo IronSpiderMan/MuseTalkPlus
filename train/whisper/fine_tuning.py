@@ -12,9 +12,9 @@ from transformers import (
 )
 
 
-def prepare_dataset_new(batch):
+def prepare_dataset(batch):
     """Function to preprocess the dataset with the .map method"""
-    audio = batch["filepath"]
+    audio = batch["audio"]
     transcription = batch["text"]
 
     if transcription.startswith('"') and transcription.endswith('"'):
@@ -28,25 +28,6 @@ def prepare_dataset_new(batch):
     batch["text"] = transcription
     batch["labels"] = tokenizer(batch["text"]).input_ids
     batch["input_features"] = feature_extractor(audio['array'], sampling_rate=16000).input_features[0]
-    return batch
-
-
-def prepare_dataset(batch):
-    """Function to preprocess the dataset with the .map method"""
-    audio = batch["audio"]
-    transcription = batch["sentence"]
-
-    if transcription.startswith('"') and transcription.endswith('"'):
-        # we can remove trailing quotation marks as they do not affect the transcription
-        transcription = transcription[1:-1]
-
-    if transcription[-1] not in [".", "?", "!"]:
-        # append a full-stop to sentences that do not end in punctuation
-        transcription = transcription + "."
-
-    batch["sentence"] = transcription
-    batch["labels"] = tokenizer(batch["sentence"]).input_ids
-    batch["input_features"] = feature_extractor(audio["array"], sampling_rate=16000).input_features[0]
     return batch
 
 
@@ -102,11 +83,11 @@ model = WhisperForConditionalGeneration.from_pretrained("openai/whisper-tiny")
 model.generation_config.language = "chinese"
 model.generation_config.task = "transcribe"
 model.generation_config.forced_decoder_ids = None
-dataset_dir = Path(os.path.dirname(__file__)) / "edgetts_zh"
-cv11_train = load_dataset('csv', data_files=str(dataset_dir / "train.csv"), split='train')
-cv11_train = cv11_train.cast_column('filepath', Audio())
+dataset_dir = Path(__file__).resolve().parent.parent.parent / 'datasets' / "edgetts_zh"
+cv11_train = load_dataset('csv', data_files=str(dataset_dir / "dataset.csv"), split='train')
+cv11_train = cv11_train.cast_column('audio', Audio())
 cv11_train = cv11_train.map(
-    prepare_dataset_new,
+    prepare_dataset,
     desc="preprocess dataset",
 )
 # 查看数据

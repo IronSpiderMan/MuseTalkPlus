@@ -14,15 +14,8 @@ from diffusers import AutoencoderKL, UNet2DConditionModel
 from train.musetalk.datasets import MuseTalkDataset
 from common.setting import VAE_PATH, UNET_CONFIG_PATH, TRAIN_OUTPUT_DIR
 
-device = "cuda" if torch.cuda.is_available() else "cpu"
-vae = AutoencoderKL.from_pretrained(VAE_PATH, subfolder="vae").to(device)
-# 加载模型
-with open(UNET_CONFIG_PATH, "r") as f:
-    unet_config = json.load(f)
-unet = UNet2DConditionModel(**unet_config).to(device)
 
-
-def train(model, device, train_loader, optimizer, epoch):
+def train(model, vae, device, train_loader, optimizer, epoch):
     iters = 0
     for epoch in tqdm(range(epoch)):
         for batch_idx, (target_image, previous_image, masked_image, audio_feature) in tqdm(enumerate(train_loader)):
@@ -57,6 +50,12 @@ def train(model, device, train_loader, optimizer, epoch):
 
 
 def main():
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    vae = AutoencoderKL.from_pretrained(VAE_PATH, subfolder="vae").to(device)
+    # 加载模型
+    with open(UNET_CONFIG_PATH, "r") as f:
+        unet_config = json.load(f)
+    unet = UNet2DConditionModel(**unet_config).to(device)
     # 加载数据
     train_dataset = MuseTalkDataset()
     train_loader = DataLoader(train_dataset, batch_size=8)
@@ -69,7 +68,7 @@ def main():
         weight_decay=1e-2,
         eps=1e-08
     )
-    train(unet, device, train_loader, optimizer, epoch=10)
+    train(unet, vae, device, train_loader, optimizer, epoch=10)
 
 
 if __name__ == '__main__':
