@@ -1,7 +1,10 @@
 from pathlib import Path
 
+# 项目根目录
+BASE_DIR = Path(__file__).resolve().parent.parent
+
 # dataset相关目录
-DATASET_DIR = Path("./datasets")
+DATASET_DIR = BASE_DIR / 'datasets'
 VIDEO_DIR = DATASET_DIR / "video"  # 存放数据集原始视频
 TMP_DATASET_DIR = DATASET_DIR / "tmp"
 AUDIO_FEATURE_DIR = DATASET_DIR / "audios"
@@ -11,14 +14,14 @@ TMP_AUDIO_DIR = TMP_DATASET_DIR / "audios"
 TMP_FRAME_DIR = TMP_DATASET_DIR / "images"
 
 # avatar相关目录
-AVATAR_DIR = Path("./results")
+AVATAR_DIR = BASE_DIR / "results"
 
 # 模型相关
-WHISPER_PATH = Path("./models/whisper/tiny.pt")
-UNET_PATH = Path("./models/musetalk")
+WHISPER_PATH = BASE_DIR / "models/whisper/tiny.pt"
+UNET_PATH = BASE_DIR / "models/musetalk"
 UNET_CONFIG_PATH = UNET_PATH / "musetalk.json"
-VAE_PATH = Path("./models/sd-vae-ft-mse")
-DWPOST_PATH = Path("./models/dwpose/dw-ll_ucoco_384.pth")
+VAE_PATH = BASE_DIR / "models/sd-vae-ft-mse"
+DWPOST_PATH = BASE_DIR / "models/dwpose/dw-ll_ucoco_384.pth"
 
 # 训练相关
-TRAIN_OUTPUT_DIR = Path("./outputs/ckpts")
+TRAIN_OUTPUT_DIR = BASE_DIR / "outputs/ckpts"

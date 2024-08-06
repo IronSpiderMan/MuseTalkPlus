@@ -2,7 +2,7 @@ import os
 import sys
 import random
 
-sys.path.append('.')
+sys.path.append('..')
 
 import cv2
 import torch

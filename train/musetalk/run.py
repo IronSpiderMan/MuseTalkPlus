@@ -2,7 +2,7 @@ import os
 import sys
 import json
 
-sys.path.append('.')
+sys.path.append('..')
 
 import torch
 from tqdm import tqdm
@@ -11,7 +11,7 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from diffusers import AutoencoderKL, UNet2DConditionModel
 
-from train.datasets import MuseTalkDataset
+from train.musetalk.datasets import MuseTalkDataset
 from common.setting import VAE_PATH, UNET_CONFIG_PATH, TRAIN_OUTPUT_DIR
 
 device = "cuda" if torch.cuda.is_available() else "cpu"

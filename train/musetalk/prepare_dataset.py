@@ -3,7 +3,7 @@ import sys
 import glob
 import shutil
 
-sys.path.append('.')
+sys.path.append('..')
 import tqdm
 
 import cv2
