@@ -25,3 +25,4 @@ DWPOST_PATH = BASE_DIR / "models/dwpose/dw-ll_ucoco_384.pth"
 
 # 训练相关
 TRAIN_OUTPUT_DIR = BASE_DIR / "outputs/ckpts"
+TRAIN_OUTPUT_LOGS_DIR = BASE_DIR / "outputs/logs"

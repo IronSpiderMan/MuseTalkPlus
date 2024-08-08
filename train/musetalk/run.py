@@ -10,11 +10,12 @@ from torch import optim
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from accelerate import Accelerator
+from accelerate.utils import ProjectConfiguration
 from diffusers.optimization import get_scheduler
 from diffusers import AutoencoderKL, UNet2DConditionModel
 
 from train.musetalk.datasets import MuseTalkDataset
-from common.setting import VAE_PATH, UNET_CONFIG_PATH, TRAIN_OUTPUT_DIR
+from common.setting import VAE_PATH, UNET_CONFIG_PATH, TRAIN_OUTPUT_DIR, TRAIN_OUTPUT_LOGS_DIR
 
 
 def train(model, vae, device, train_loader, optimizer, epoch, accelerator, scheduler):
@@ -63,10 +64,21 @@ def main():
     unet = UNet2DConditionModel(**unet_config).to(device)
     # 加载数据
     train_dataset = MuseTalkDataset()
-    train_loader = DataLoader(train_dataset, batch_size=8)
+    train_loader = DataLoader(train_dataset, batch_size=8, num_workers=8)
     os.makedirs(TRAIN_OUTPUT_DIR, exist_ok=True)
+    os.makedirs(TRAIN_OUTPUT_LOGS_DIR, exist_ok=True)
     # 创建加速器
-    accelerator = Accelerator()
+    project_config = ProjectConfiguration(
+        total_limit=10,
+        project_dir=TRAIN_OUTPUT_DIR,
+        logging_dir=TRAIN_OUTPUT_LOGS_DIR
+    )
+    accelerator = Accelerator(
+        gradient_accumulation_steps=1,
+        mixed_precision="fp32",
+        log_with="tensorboard",
+        project_config=project_config
+    )
     # 创建优化器
     optimizer = optim.AdamW(
         unet.parameters(),
