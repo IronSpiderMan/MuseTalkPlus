@@ -2,7 +2,7 @@ import os
 import sys
 import json
 
-sys.path.append('..')
+sys.path.append('.')
 
 import torch
 from tqdm import tqdm
@@ -17,8 +17,9 @@ from common.setting import VAE_PATH, UNET_CONFIG_PATH, TRAIN_OUTPUT_DIR
 
 def train(model, vae, device, train_loader, optimizer, epoch):
     iters = 0
-    for epoch in tqdm(range(epoch)):
-        for batch_idx, (target_image, previous_image, masked_image, audio_feature) in tqdm(enumerate(train_loader)):
+    print(len(train_loader))
+    for epoch in range(epoch):
+        for batch_idx, (target_image, previous_image, masked_image, audio_feature) in tqdm(enumerate(train_loader), total=len(train_loader)):
             target_image, previous_image, masked_image, audio_feature = (
                 target_image.to(device),
                 previous_image.to(device),
@@ -42,12 +43,12 @@ def train(model, vae, device, train_loader, optimizer, epoch):
             loss.backward()
             optimizer.step()
             optimizer.zero_grad()
-            if batch_idx % 50 == 0:
+            if (batch_idx + 1) % 50 == 0:
                 print(f"epoch: {epoch + 1}, iters: {batch_idx}, loss: {loss.item()}")
             iters += 1
-            if (iters + 1) % 100 == 0:
+            if (iters + 1) % 1000 == 0:
                 torch.save(model.state_dict(), TRAIN_OUTPUT_DIR / f'musetalk--iters--{iters + 1}.pt')
-
+            
 
 def main():
     device = "cuda" if torch.cuda.is_available() else "cpu"

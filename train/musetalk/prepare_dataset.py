@@ -3,10 +3,10 @@ import sys
 import glob
 import shutil
 
-sys.path.append('..')
-import tqdm
+sys.path.append('.')
 
 import cv2
+import tqdm
 import numpy as np
 
 from musetalk.whisper.audio_feature_extractor import AudioFeatureExtractor
