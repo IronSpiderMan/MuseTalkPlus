@@ -9,17 +9,20 @@ from tqdm import tqdm
 from torch import optim
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
+from accelerate import Accelerator
+from diffusers.optimization import get_scheduler
 from diffusers import AutoencoderKL, UNet2DConditionModel
 
 from train.musetalk.datasets import MuseTalkDataset
 from common.setting import VAE_PATH, UNET_CONFIG_PATH, TRAIN_OUTPUT_DIR
 
 
-def train(model, vae, device, train_loader, optimizer, epoch):
+def train(model, vae, device, train_loader, optimizer, epoch, accelerator, scheduler):
     iters = 0
-    print(len(train_loader))
     for epoch in range(epoch):
-        for batch_idx, (target_image, previous_image, masked_image, audio_feature) in tqdm(enumerate(train_loader), total=len(train_loader)):
+        for batch_idx, (target_image, previous_image, masked_image, audio_feature) in tqdm(enumerate(train_loader),
+                                                                                           total=len(train_loader)):
+            optimizer.zero_grad()
             target_image, previous_image, masked_image, audio_feature = (
                 target_image.to(device),
                 previous_image.to(device),
@@ -40,15 +43,16 @@ def train(model, vae, device, train_loader, optimizer, epoch):
 
             image_pred = model(latent_model_input, 0, encoder_hidden_states=audio_feature.to(device)).sample
             loss = F.mse_loss(image_pred.float(), latents.float(), reduction="mean")
-            loss.backward()
+            accelerator.backward(loss)
+            # loss.backward()
             optimizer.step()
-            optimizer.zero_grad()
+            scheduler.step()
             if (batch_idx + 1) % 50 == 0:
                 print(f"epoch: {epoch + 1}, iters: {batch_idx}, loss: {loss.item()}")
             iters += 1
             if (iters + 1) % 1000 == 0:
                 torch.save(model.state_dict(), TRAIN_OUTPUT_DIR / f'musetalk--iters--{iters + 1}.pt')
-            
+
 
 def main():
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -61,6 +65,8 @@ def main():
     train_dataset = MuseTalkDataset()
     train_loader = DataLoader(train_dataset, batch_size=8)
     os.makedirs(TRAIN_OUTPUT_DIR, exist_ok=True)
+    # 创建加速器
+    accelerator = Accelerator()
     # 创建优化器
     optimizer = optim.AdamW(
         unet.parameters(),
@@ -69,7 +75,18 @@ def main():
         weight_decay=1e-2,
         eps=1e-08
     )
-    train(unet, vae, device, train_loader, optimizer, epoch=10)
+    # 创建scheduler
+    lr_scheduler = get_scheduler(
+        'constant',
+        optimizer=optimizer,
+        num_warmup_steps=500 * accelerator.num_processes,
+    )
+    unet, optimizer, train_loader, lr_scheduler = accelerator.prepare(
+        unet, optimizer, train_loader, lr_scheduler
+    )
+    unet.train()
+    vae.requires_grad_(False)
+    train(unet, vae, device, train_loader, optimizer, 10, accelerator, lr_scheduler)
 
 
 if __name__ == '__main__':
