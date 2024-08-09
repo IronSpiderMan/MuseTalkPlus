@@ -40,12 +40,13 @@ def training_loop(epochs, lr, batch_size, mixed_precision='no'):
     # 训练
     for epoch in range(epochs):
         model.train()
-        for step, (target_image, masked_image, audio_feature) in tqdm(
+        for step, (target_image, related_image, masked_image, audio_feature) in tqdm(
                 enumerate(train_loader),
                 total=len(train_loader)
         ):
-            target_image, masked_image, audio_feature = (
+            target_image, related_image, masked_image, audio_feature = (
                 target_image.to(device),
+                related_image.to(device),
                 masked_image.to(device),
                 audio_feature.to(device)
             )
@@ -55,9 +56,13 @@ def training_loop(epochs, lr, batch_size, mixed_precision='no'):
             # 获取输入的latents
             masked_latents = vae.encode(masked_image).latent_dist.sample()
             masked_latents = masked_latents * vae.config.scaling_factor
-
+            # 获取邻近图像的latents
+            related_image = vae.encode(related_image).latent_dist.sample()
+            related_image = related_image * vae.config.scaling_factor
+            # 拼接输入
+            latent_model_input = torch.cat([masked_latents, related_image], dim=1)
             # Forward
-            image_pred = model(masked_latents, 0, encoder_hidden_states=audio_feature.to(device)).sample
+            image_pred = model(latent_model_input, 0, encoder_hidden_states=audio_feature.to(device)).sample
             loss = F.mse_loss(image_pred.float(), latents.float(), reduction="mean")
             # Backward
             accelerator.backward(loss)
