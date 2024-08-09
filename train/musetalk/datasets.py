@@ -147,7 +147,7 @@ class MuseTalkDataset(Dataset):
         # TODO masked_image应该使用非target_image旁边的图像，因为在推理时我们不知道target_image
         # 在1-len(images)范围选一张图片
         frame_idx = random.randint(1, len(video_data['image_files']) - 2)
-        target_image, related_image = self.load_frames(video_name, frame_idx)
+        related_image, target_image = self.load_frames(video_name, frame_idx)
         # target_image = self.load_frame(video_name, frame_idx)
         # 创建mask
         mask = torch.zeros((target_image.shape[1], target_image.shape[2]))
@@ -156,6 +156,10 @@ class MuseTalkDataset(Dataset):
         masked_image = target_image * mask
         # 获取对应音频即window中的音频
         audio_feature = self.load_audio_feature_with_window(video_name, frame_idx)
+        # from PIL import Image
+        # Image.fromarray(np.transpose(target_image.numpy() * 255., (1, 2, 0)).astype(np.uint8)).save('1.jpg')
+        # Image.fromarray(np.transpose(related_image.numpy() * 255., (1, 2, 0)).astype(np.uint8)).save('2.jpg')
+        # Image.fromarray(np.transpose(masked_image.numpy() * 255., (1, 2, 0)).astype(np.uint8)).save('3.jpg')
         return self.transform(target_image), self.transform(related_image), self.transform(masked_image), audio_feature
         # return self.transform(target_image), self.transform(masked_image), audio_feature
 
@@ -164,11 +168,10 @@ if __name__ == "__main__":
     # get_face_mask(cv2.imread("./results/tjl/full_images/00000000.png"))
     val_data = MuseTalkDataset()
     dataloader = DataLoader(val_data, batch_size=1)
-    print(len(dataloader))
     for i in dataloader:
-        print(i)
-        # ti, pi, mi, af = i
+        # print(i)
+        ti, ri, mi, af = i
         # print(ti.shape)
         # print(mi.shape)
         # print(af.shape)
-        # break
+        break
