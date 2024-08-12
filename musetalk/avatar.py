@@ -8,6 +8,7 @@ import queue
 import pickle
 import shutil
 import asyncio
+import threading
 from typing import Literal
 
 import cv2
@@ -262,24 +263,24 @@ class Avatar:
         print("\n")
 
     def process_frame(self, frame, flag: Literal['start', 'end'] = None):
-        current_idx = self.increase_idx()
-        bbox = self.coord_list_cycle[current_idx]
+        bbox = self.coord_list_cycle[self.idx]
         x1, y1, x2, y2 = bbox
-        ori_frame = copy.deepcopy(self.frame_list_cycle[current_idx])
+        ori_frame = copy.deepcopy(self.frame_list_cycle[self.idx])
         # 必要时才Resize
         target_size = (x2 - x1, y2 - y1)
         if frame.shape[1] != target_size[0] or frame.shape[0] != target_size[1]:
             res_frame = cv2.resize(frame.astype(np.uint8), (x2 - x1, y2 - y1))
         else:
             res_frame = frame.astype(np.uint8)
-        mask = self.mask_list_cycle[current_idx]
-        mask_crop_box = self.mask_coords_list_cycle[current_idx]
+        mask = self.mask_list_cycle[self.idx]
+        mask_crop_box = self.mask_coords_list_cycle[self.idx]
         combine_frame = get_image_blending(ori_frame, res_frame, bbox, mask, mask_crop_box)
         if flag == 'start':
             self.inference_result_queue.put(flag)
         self.inference_result_queue.put(combine_frame)
         if flag == 'end':
             self.inference_result_queue.put(flag)
+        self.increase_idx()
         return combine_frame
 
     def increase_idx(self):
