@@ -1,9 +1,15 @@
+import sys
 import math
 import json
 
+import cv2
 import torch
 import torch.nn as nn
-from diffusers import UNet2DConditionModel
+import numpy as np
+from diffusers import UNet2DConditionModel, AutoencoderKL
+
+sys.path.append('.')
+from musetalk.models.vae import VAE
 
 
 class PositionalEncoding(nn.Module):
@@ -42,3 +48,29 @@ class UNet:
         if use_float16:
             self.model = self.model.half()
         self.model.to(self.device)
+
+
+if __name__ == '__main__':
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    pe = PositionalEncoding().to(device)
+
+    unet = UNet('./models/musetalk/musetalk.json', './models/musetalk/pytorch_model.bin')
+    unet.model = unet.model.to(device)
+    vae = VAE()
+    vae.vae = vae.vae.to(device)
+    vae.vae.requires_grad_(False)
+
+    fidx = 230
+
+    # 准备数据，形状为batch_size， 8, 32, 32
+    image = cv2.imread(f"./datasets/images/1/{fidx}.png")
+    image = cv2.resize(image, (256, 256))
+    audio = np.load(f'./datasets/audios/1/{fidx}.npy')
+    audio = pe(torch.FloatTensor(audio[None]).to(device))
+    latents = vae.get_latents_for_unet(image)
+    out_latents = unet.model(latents, 0, encoder_hidden_states=audio).sample
+    outputs = vae.decode_latents(out_latents)[0][:, :, ::-1]
+
+    from PIL import Image
+
+    Image.fromarray(outputs).save('1.jpg')

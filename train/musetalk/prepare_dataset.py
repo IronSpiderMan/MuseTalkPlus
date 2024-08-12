@@ -2,27 +2,40 @@ import os
 import sys
 import glob
 import shutil
-
-sys.path.append('.')
+import argparse
 
 import cv2
 import tqdm
 import numpy as np
+from spaces.zero.bitsandbytes import torch
 
-from musetalk.whisper.audio_feature_extractor import AudioFeatureExtractor
-from musetalk.utils.preprocessing import get_landmark_and_bbox
+sys.path.append('.')
+
+from musetalk.models.vae import VAE
 from musetalk.utils.utils import video2images, video2audio
-from common.setting import VIDEO_FRAME_DIR, AUDIO_FEATURE_DIR, TMP_FRAME_DIR, TMP_AUDIO_DIR, TMP_DATASET_DIR
+from musetalk.utils.preprocessing import get_landmark_and_bbox
+from musetalk.whisper.audio_feature_extractor import AudioFeatureExtractor
+
+from common.utils import recreate_multiple_dirs
+from common.setting import (
+    TMP_FRAME_DIR, TMP_AUDIO_DIR, TMP_DATASET_DIR,
+    VIDEO_FRAME_DIR, AUDIO_FEATURE_DIR, VIDEO_LATENT_DIR, VAE_PATH
+)
 
 afe = AudioFeatureExtractor()
+vae: VAE
+device = "cuda" if torch.cuda.is_available() else "cpu"
 
 
-def process_video(video_path="./data/video/zack.mp4"):
+def process_video(video_path="./data/video/zack.mp4", include_latents=False):
     video_name = os.path.basename(video_path).split('.')[0]
-    os.makedirs(VIDEO_FRAME_DIR / video_name, exist_ok=True)
-    os.makedirs(AUDIO_FEATURE_DIR / video_name, exist_ok=True)
-    os.makedirs(TMP_FRAME_DIR, exist_ok=True)
-    os.makedirs(TMP_AUDIO_DIR, exist_ok=True)
+    recreate_multiple_dirs([
+        VIDEO_FRAME_DIR / video_name,
+        VIDEO_LATENT_DIR / video_name,
+        AUDIO_FEATURE_DIR / video_name,
+        TMP_FRAME_DIR,
+        TMP_AUDIO_DIR
+    ])
     # 提取视频帧
     video2images(video_path, TMP_FRAME_DIR)
     # 提取音频
@@ -40,6 +53,10 @@ def process_video(video_path="./data/video/zack.mp4"):
             resized_crop_frame = cv2.resize(crop_frame, (256, 256), interpolation=cv2.INTER_LANCZOS4)
             dst = VIDEO_FRAME_DIR / video_name / f"{idx}.png"
             cv2.imwrite(str(dst), resized_crop_frame)
+            if include_latents:
+                dst = VIDEO_LATENT_DIR / video_name / f"{idx}.npy"
+                latent = vae.get_latents_for_unet(resized_crop_frame).cpu().numpy()[0]
+                np.save(str(dst), latent)
             dst = AUDIO_FEATURE_DIR / video_name / f"{idx}.npy"
             np.save(str(dst), chunk)
         except Exception as e:
@@ -47,10 +64,34 @@ def process_video(video_path="./data/video/zack.mp4"):
     shutil.rmtree(TMP_DATASET_DIR)
 
 
-def process_videos(video_dir="./datasets/videos"):
+def process_videos(video_dir="./datasets/videos", include_latents=False):
     for file in tqdm.tqdm(glob.glob(video_dir + "/*.mp4")):
-        process_video(file)
+        process_video(file, include_latents)
+
+
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--include_latents",
+        type=bool,
+        default=False
+    )
+    parser.add_argument(
+        "--videos_dir",
+        type=str,
+        default="./datasets/videos"
+    )
+    return parser.parse_args()
+
+
+def main():
+    global vae
+    args = parse_args()
+    if args.include_latents:
+        vae = VAE(VAE_PATH)
+        vae.vae = vae.vae.to(device)
+    process_videos(video_dir=args.videos_dir, include_latents=args.include_latents)
 
 
 if __name__ == '__main__':
-    process_videos()
+    main()
