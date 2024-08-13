@@ -2,8 +2,6 @@ import sys
 import json
 import datetime
 
-sys.path.append('.')
-
 import torch
 from tqdm import tqdm
 from torch import optim
@@ -13,12 +11,17 @@ from accelerate import Accelerator
 from accelerate.utils import set_seed
 from diffusers import AutoencoderKL, UNet2DConditionModel
 
+sys.path.append('.')
+
 from train.musetalk.datasets import MuseTalkDataset
-from common.setting import VAE_PATH, UNET_CONFIG_PATH, TRAIN_OUTPUT_DIR, TRAIN_OUTPUT_LOGS_DIR
+from common.setting import VAE_PATH, UNET_CONFIG_PATH, TRAIN_OUTPUT_DIR
+from musetalk.models.unet import PositionalEncoding
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
+
 vae = AutoencoderKL.from_pretrained(VAE_PATH, subfolder="vae").to(device)
 vae.requires_grad_(False)
+pe = PositionalEncoding().to(device)
 
 
 def training_loop(epochs, lr, batch_size, mixed_precision='no'):
@@ -51,18 +54,19 @@ def training_loop(epochs, lr, batch_size, mixed_precision='no'):
                 audio_feature.to(device)
             )
             # 获取目标的latents
-            latents = vae.encode(target_image).latent_dist.sample()
+            latents = vae.encode(target_image.to(vae.dtype)).latent_dist.sample()
             latents = latents * vae.config.scaling_factor
+
             # 获取输入的latents
-            masked_latents = vae.encode(masked_image).latent_dist.sample()
+            masked_latents = vae.encode(masked_image.to(vae.dtype)).latent_dist.sample()
             masked_latents = masked_latents * vae.config.scaling_factor
-            # 获取邻近图像的latents
-            related_image = vae.encode(related_image).latent_dist.sample()
+            related_image = vae.encode(related_image.to(vae.dtype)).latent_dist.sample()
             related_image = related_image * vae.config.scaling_factor
-            # 拼接输入
-            latent_model_input = torch.cat([masked_latents, related_image], dim=1)
+            input_latents = torch.cat([masked_latents, related_image], dim=1)
+            with torch.no_grad():
+                audio_feature = pe(audio_feature)
             # Forward
-            image_pred = model(latent_model_input, 0, encoder_hidden_states=audio_feature.to(device)).sample
+            image_pred = model(input_latents, 0, encoder_hidden_states=audio_feature).sample
             loss = F.mse_loss(image_pred.float(), latents.float(), reduction="mean")
             # Backward
             accelerator.backward(loss)
@@ -76,7 +80,7 @@ def training_loop(epochs, lr, batch_size, mixed_precision='no'):
                 net_dict = accelerator.get_state_dict(model)
                 accelerator.save(
                     net_dict,
-                    TRAIN_OUTPUT_DIR / f"checkpoint-epoch-{epoch + 1}-iters-{step + 1}-loss-{loss:.5f}"
+                    TRAIN_OUTPUT_DIR / f"checkpoint-epoch-{epoch + 1}-iters-{step + 1}-loss-{loss:.5f}.pt"
                 )
 
 
