@@ -2,69 +2,26 @@ import os
 import sys
 import random
 
-sys.path.append('.')
-
 import cv2
 import torch
 import numpy as np
 from torch.utils.data import DataLoader, Dataset
 from torchvision.transforms import transforms
-from mmpose.apis import inference_topdown, init_model
-from mmpose.structures import merge_data_samples
 
-from common.setting import AUDIO_FEATURE_DIR, VIDEO_FRAME_DIR, DWPOST_PATH
-from musetalk.utils.face_detection import FaceAlignment, LandmarksType
-from musetalk.utils.blending import get_image_prepare_material
+sys.path.append('.')
+
+from common.setting import AUDIO_FEATURE_DIR, VIDEO_FRAME_DIR
 
 RESIZED_IMG = 256
 device = "cuda" if torch.cuda.is_available() else "cpu"
 config_file = './musetalk/utils/dwpose/rtmpose-l_8xb32-270e_coco-ubody-wholebody-384x288.py'
-model = init_model(config_file, str(DWPOST_PATH), device=device)
-fa = FaceAlignment(LandmarksType._2D, flip_input=False, device=device)
-coord_placeholder = (0.0, 0.0, 0.0, 0.0)
-
-
-def get_face_mask(image, upperbound_range=0):
-    results = inference_topdown(model, image)
-    results = merge_data_samples(results)
-    keypoints = results.pred_instances.keypoints
-    face_land_mark = keypoints[0][23:91]
-    face_land_mark = face_land_mark.astype(np.int32)
-    bbox = fa.get_detections_for_batch(np.asarray([image]))
-
-    average_range_minus = []
-    average_range_plus = []
-
-    if len(bbox) == 0:
-        landmark = coord_placeholder
-    else:
-        half_face_coord = face_land_mark[29]
-        range_minus = (face_land_mark[30] - face_land_mark[29])[1]
-        range_plus = (face_land_mark[29] - face_land_mark[28])[1]
-        average_range_minus.append(range_minus)
-        average_range_plus.append(range_plus)
-        if upperbound_range != 0:
-            half_face_coord[1] = upperbound_range + half_face_coord[1]  # 手动调整  + 向下（偏29）  - 向上（偏28）
-        half_face_dist = np.max(face_land_mark[:, 1]) - half_face_coord[1]
-        upper_bond = half_face_coord[1] - half_face_dist
-
-        f_landmark = (
-            np.min(face_land_mark[:, 0]), int(upper_bond), np.max(face_land_mark[:, 0]),
-            np.max(face_land_mark[:, 1]))
-        x1, y1, x2, y2 = f_landmark
-        if y2 - y1 <= 0 or x2 - x1 <= 0 or x1 < 0:  # if the landmark bbox is not suitable, reuse the bbox
-            landmark = bbox[0]
-        else:
-            landmark = f_landmark
-    mask, crop_box = get_image_prepare_material(image, landmark)
-    return mask, crop_box
 
 
 class MuseTalkDataset(Dataset):
     def __init__(
             self,
             audio_window=1,
-            related_window=3
+            related_window=5
     ):
         self.all_data = {}
         self.audio_window = audio_window
