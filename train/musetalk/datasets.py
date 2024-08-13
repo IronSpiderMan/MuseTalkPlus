@@ -133,6 +133,7 @@ class MuseTalkDataset(Dataset):
     def load_frame(self, video_name, frame_idx):
         image = cv2.imread(self.all_data[video_name]['image_files'][frame_idx])
         image = cv2.resize(image, (RESIZED_IMG, RESIZED_IMG))
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         image = torch.FloatTensor(np.transpose(image / 255., (2, 0, 1)))
         return image
 
@@ -151,7 +152,6 @@ class MuseTalkDataset(Dataset):
         # 在1-len(images)范围选一张图片
         frame_idx = random.randint(1, len(video_data['image_files']) - 2)
         related_image, target_image = self.load_frames(video_name, frame_idx)
-        # target_image = self.load_frame(video_name, frame_idx)
         # 创建mask
         mask = torch.zeros((target_image.shape[1], target_image.shape[2]))
         mask[:target_image.shape[1] // 2, :] = 1
@@ -159,12 +159,7 @@ class MuseTalkDataset(Dataset):
         masked_image = target_image * mask
         # 获取对应音频即window中的音频
         audio_feature = self.load_audio_feature_with_window(video_name, frame_idx)
-        # from PIL import Image
-        # Image.fromarray(np.transpose(target_image.numpy() * 255., (1, 2, 0)).astype(np.uint8)).save('1.jpg')
-        # Image.fromarray(np.transpose(related_image.numpy() * 255., (1, 2, 0)).astype(np.uint8)).save('2.jpg')
-        # Image.fromarray(np.transpose(masked_image.numpy() * 255., (1, 2, 0)).astype(np.uint8)).save('3.jpg')
         return self.transform(target_image), self.transform(related_image), self.transform(masked_image), audio_feature
-        # return self.transform(target_image), self.transform(masked_image), audio_feature
 
 
 if __name__ == "__main__":

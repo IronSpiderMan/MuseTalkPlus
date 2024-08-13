@@ -77,15 +77,16 @@ def training_loop(epochs, lr, batch_size, mixed_precision='no'):
                 accelerator.wait_for_everyone()
                 now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 accelerator.print(f"epoch【{epoch}】@{now} --> loss = {loss:.5f}%")
-                net_dict = accelerator.get_state_dict(model)
-                accelerator.save(
-                    net_dict,
-                    TRAIN_OUTPUT_DIR / f"checkpoint-epoch-{epoch + 1}-iters-{step + 1}-loss-{loss:.5f}.pt"
-                )
+                # net_dict = accelerator.get_state_dict(model)
+                accelerator.save_model(model, TRAIN_OUTPUT_DIR)
+                # accelerator.save(
+                #     net_dict,
+                #     TRAIN_OUTPUT_DIR / f"checkpoint-epoch-{epoch + 1}-iters-{step + 1}-loss-{loss:.5f}.pt"
+                # )
 
 
 def main():
-    training_loop(10, lr=1e-5, batch_size=8, mixed_precision="fp16")
+    training_loop(10, lr=1e-5, batch_size=8, mixed_precision="no")
 
 
 if __name__ == '__main__':
