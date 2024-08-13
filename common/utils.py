@@ -1,4 +1,5 @@
 import os
+import shutil
 import time
 import subprocess
 from functools import partial
@@ -41,7 +42,8 @@ def make_multiple_dirs(path_list):
 
 def remove_multiple_dirs(path_list):
     for path in path_list:
-        os.removedirs(path) if os.path.exists(path) else None
+        # os.removedirs(path) if os.path.exists(path) else None
+        shutil.rmtree(path) if os.path.exists(path) else None
 
 
 def recreate_multiple_dirs(path_list):

@@ -6,8 +6,8 @@ import argparse
 
 import cv2
 import tqdm
+import torch
 import numpy as np
-from spaces.zero.bitsandbytes import torch
 
 sys.path.append('.')
 

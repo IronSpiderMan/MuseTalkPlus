@@ -97,6 +97,9 @@ class MuseTalkDataset(Dataset):
                 self.all_data[video_name]["audio_files"].append(
                     os.path.join(audios_dir, filename)
                 )
+            # 如果该video下面的内容小于2，则删除
+            if len(self.all_data[video_name]['image_files']) < 2:
+                del self.all_data[video_name]
         return self.all_data
 
     def load_audio_feature_with_window(self, video_name, frame_idx: int):
