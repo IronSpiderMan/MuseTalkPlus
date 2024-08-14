@@ -1,6 +1,7 @@
 import sys
 import json
 import datetime
+import os
 
 import torch
 from tqdm import tqdm
@@ -24,7 +25,7 @@ vae.requires_grad_(False)
 pe = PositionalEncoding().to(device)
 
 
-def training_loop(epochs, lr, batch_size, mixed_precision='no'):
+def training_loop(epochs, lr, batch_size, mixed_precision='no', max_checkpoints=10):
     train_loader = DataLoader(MuseTalkDataset(), batch_size=batch_size, num_workers=4, pin_memory=True)
     with open(UNET_CONFIG_PATH, "r") as f:
         unet_config = json.load(f)
@@ -40,6 +41,12 @@ def training_loop(epochs, lr, batch_size, mixed_precision='no'):
     model, optimizer, lr_scheduler, train_loader = accelerator.prepare(
         model, optimizer, lr_scheduler, train_loader
     )
+
+    # 初始化用于存储检查点信息的变量
+    checkpoint_list = []
+    min_loss = float('inf')
+    min_loss_checkpoint = None
+
     # 训练
     for epoch in range(epochs):
         model.train()
@@ -73,25 +80,33 @@ def training_loop(epochs, lr, batch_size, mixed_precision='no'):
             optimizer.step()
             lr_scheduler.step()
             optimizer.zero_grad()
+
+            # 保存检查点
             if (step + 1) % 1000 == 0:
                 accelerator.wait_for_everyone()
                 now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                accelerator.print(f"epoch【{epoch}】@{now} --> loss = {loss:.5f}%")
-                # accelerator.save_model(model, TRAIN_OUTPUT_DIR)
-                accelerator.save(
-                    {
-                        'model_state_dict': model.state_dict(),
-                        'optimizer_state_dict': optimizer.state_dict(),
-                        'scheduler_state_dict': lr_scheduler.state_dict(),
-                        'loss': loss
-                    },
-                    TRAIN_OUTPUT_DIR / f"checkpoint-epoch-{epoch + 1}-iters-{step + 1}-loss-{loss:.5f}.pt"
-                )
-                # net_dict = accelerator.get_state_dict(model)
-                # accelerator.save(
-                #     net_dict,
-                #     TRAIN_OUTPUT_DIR / f"checkpoint-epoch-{epoch + 1}-iters-{step + 1}-loss-{loss:.5f}.pt"
-                # )
+                accelerator.print(f"epoch【{epoch}】@{now} --> loss = {loss:.5f}")
+
+                # 保存当前检查点
+                checkpoint_path = TRAIN_OUTPUT_DIR / f"checkpoint-epoch-{epoch + 1}-iters-{step + 1}-loss-{loss:.5f}.pt"
+                accelerator.save(accelerator.get_state_dict(model), checkpoint_path)
+                checkpoint_list.append(checkpoint_path)
+
+                # 维护最多10个检查点
+                if len(checkpoint_list) > max_checkpoints:
+                    # 删除最早的检查点
+                    oldest_checkpoint = checkpoint_list.pop(0)
+                    if oldest_checkpoint != min_loss_checkpoint:
+                        os.remove(oldest_checkpoint)
+
+                # 更新最小损失检查点
+                if loss < min_loss:
+                    min_loss = loss
+                    min_loss_checkpoint = checkpoint_path
+
+                    # 复制最小损失的检查点
+                    min_loss_checkpoint_copy = TRAIN_OUTPUT_DIR / "best_checkpoint.pt"
+                    accelerator.save(accelerator.get_state_dict(model), min_loss_checkpoint_copy)
 
 
 def main():
