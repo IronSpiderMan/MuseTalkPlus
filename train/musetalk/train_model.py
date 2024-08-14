@@ -77,7 +77,7 @@ def training_loop(epochs, lr, batch_size, mixed_precision='no'):
                 accelerator.wait_for_everyone()
                 now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 accelerator.print(f"epoch【{epoch}】@{now} --> loss = {loss:.5f}%")
-                accelerator.save_model(model, TRAIN_OUTPUT_DIR)
+                # accelerator.save_model(model, TRAIN_OUTPUT_DIR)
                 accelerator.save(
                     {
                         'model_state_dict': model.state_dict(),
