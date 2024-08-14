@@ -8,7 +8,6 @@ import queue
 import pickle
 import shutil
 import asyncio
-import threading
 from typing import Literal
 
 import cv2
@@ -247,7 +246,6 @@ class Avatar:
                 frame_idx += 1
 
         if out_vid_name and not realtime:
-            shutil.rmtree(self.avatar_path / 'tmp')
             # optional
             cmd_img2video = f"ffmpeg -y -v warning -r {fps} -f image2 -i {self.avatar_path}/tmp/%08d.png -vcodec libx264 -vf format=rgb24,scale=out_color_matrix=bt709,format=yuv420p -crf 18 {self.avatar_path}/temp.mp4"
             print(cmd_img2video)
@@ -259,7 +257,7 @@ class Avatar:
             os.system(cmd_combine_audio)
 
             os.remove(self.avatar_path / "temp.mp4")
-            # shutil.rmtree(self.avatar_path / "tmp")
+            shutil.rmtree(self.avatar_path / "tmp")
             print(f"result is save to {output_vid}")
         print("\n")
 

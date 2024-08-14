@@ -1,12 +1,12 @@
 import os
+import tempfile
+import subprocess
 
 import cv2
-import numpy as np
 import torch
 import edge_tts
 import pandas as pd
-import tempfile
-import subprocess
+import numpy as np
 
 ffmpeg_path = os.getenv('FFMPEG_PATH')
 if ffmpeg_path is None:
@@ -19,6 +19,7 @@ elif ffmpeg_path not in os.getenv('PATH'):
 from musetalk.whisper.audio_feature_extractor import AudioFeatureExtractor
 from musetalk.models.vae import VAE
 from musetalk.models.unet import UNet, PositionalEncoding
+from common.setting import VAE_PATH, UNET_CONFIG_PATH, UNET_MODEL_PATH
 
 voices = pd.DataFrame([
     {
@@ -46,10 +47,10 @@ voices = pd.DataFrame([
 
 def load_all_model():
     audio_feature_extractor = AudioFeatureExtractor()
-    vae = VAE(model_path="./models/sd-vae-ft-mse/")
+    vae = VAE(model_path=VAE_PATH)
     unet = UNet(
-        unet_config="./models/musetalk/musetalk.json",
-        model_path="./models/musetalk/pytorch_model.bin",
+        unet_config=UNET_CONFIG_PATH,
+        model_path=UNET_MODEL_PATH,
         use_float16=True
     )
     pe = PositionalEncoding(d_model=384)

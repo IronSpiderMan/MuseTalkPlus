@@ -4,12 +4,15 @@ import json
 
 import cv2
 import torch
-import torch.nn as nn
 import numpy as np
-from diffusers import UNet2DConditionModel, AutoencoderKL
+from torch import nn
+from safetensors import safe_open
+from safetensors.torch import load_file
+from diffusers import UNet2DConditionModel
 
 sys.path.append('.')
 from musetalk.models.vae import VAE
+from common.setting import UNET_MODEL_PATH, UNET_CONFIG_PATH
 
 
 class PositionalEncoding(nn.Module):
@@ -42,8 +45,14 @@ class UNet:
         self.model = UNet2DConditionModel(**unet_config)
         self.pe = PositionalEncoding(d_model=384)
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        weights = torch.load(model_path) if torch.cuda.is_available() else torch.load(model_path,
-                                                                                      map_location=self.device)
+        if str(model_path).endswith('.safetensors'):
+            weights = {}
+            with safe_open(model_path, framework='pt', device='cpu') as f:
+                for key in f.keys():
+                    weights[key] = f.get_tensor(key)
+        else:
+            weights = torch.load(model_path) if torch.cuda.is_available() else torch.load(model_path,
+                                                                                          map_location=self.device)
         self.model.load_state_dict(weights)
         if use_float16:
             self.model = self.model.half()
@@ -54,18 +63,19 @@ if __name__ == '__main__':
     device = "cuda" if torch.cuda.is_available() else "cpu"
     pe = PositionalEncoding().to(device)
 
-    unet = UNet('./models/musetalk/musetalk.json', './models/musetalk/pytorch_model.bin')
+    unet = UNet(UNET_CONFIG_PATH, UNET_MODEL_PATH)
     unet.model = unet.model.to(device)
     vae = VAE()
     vae.vae = vae.vae.to(device)
     vae.vae.requires_grad_(False)
 
-    fidx = 230
+    fidx = 300
 
     # 准备数据，形状为batch_size， 8, 32, 32
-    image = cv2.imread(f"./datasets/images/1/{fidx}.png")
+    # image = cv2.imread(f"./datasets/images/tjl1/{fidx}.png")
+    image = cv2.imread(f"./300.png")
     image = cv2.resize(image, (256, 256))
-    audio = np.load(f'./datasets/audios/1/{fidx}.npy')
+    audio = np.load(f'./datasets/audios/tjl/{fidx}.npy')
     audio = pe(torch.FloatTensor(audio[None]).to(device))
     latents = vae.get_latents_for_unet(image)
     out_latents = unet.model(latents, 0, encoder_hidden_states=audio).sample

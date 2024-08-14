@@ -25,7 +25,7 @@ pe = PositionalEncoding().to(device)
 
 
 def training_loop(epochs, lr, batch_size, mixed_precision='no'):
-    train_loader = DataLoader(MuseTalkDataset(), batch_size=batch_size)
+    train_loader = DataLoader(MuseTalkDataset(), batch_size=batch_size, num_workers=4, pin_memory=True)
     with open(UNET_CONFIG_PATH, "r") as f:
         unet_config = json.load(f)
     model = UNet2DConditionModel(**unet_config).to(device)
@@ -77,8 +77,17 @@ def training_loop(epochs, lr, batch_size, mixed_precision='no'):
                 accelerator.wait_for_everyone()
                 now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 accelerator.print(f"epoch【{epoch}】@{now} --> loss = {loss:.5f}%")
-                # net_dict = accelerator.get_state_dict(model)
                 accelerator.save_model(model, TRAIN_OUTPUT_DIR)
+                accelerator.save(
+                    {
+                        'model_state_dict': model.state_dict(),
+                        'optimizer_state_dict': optimizer.state_dict(),
+                        'scheduler_state_dict': lr_scheduler.state_dict(),
+                        'loss': loss
+                    },
+                    TRAIN_OUTPUT_DIR / f"checkpoint-epoch-{epoch + 1}-iters-{step + 1}-loss-{loss:.5f}.pt"
+                )
+                # net_dict = accelerator.get_state_dict(model)
                 # accelerator.save(
                 #     net_dict,
                 #     TRAIN_OUTPUT_DIR / f"checkpoint-epoch-{epoch + 1}-iters-{step + 1}-loss-{loss:.5f}.pt"

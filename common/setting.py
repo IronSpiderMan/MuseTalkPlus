@@ -21,6 +21,7 @@ AVATAR_DIR = BASE_DIR / "results"
 WHISPER_PATH = BASE_DIR / "models/whisper/tiny.pt"
 UNET_PATH = BASE_DIR / "models/musetalk"
 UNET_CONFIG_PATH = UNET_PATH / "musetalk.json"
+UNET_MODEL_PATH = UNET_PATH / "pytorch_model.bin"
 VAE_PATH = BASE_DIR / "models/sd-vae-ft-mse"
 DWPOST_PATH = BASE_DIR / "models/dwpose/dw-ll_ucoco_384.pth"
 
