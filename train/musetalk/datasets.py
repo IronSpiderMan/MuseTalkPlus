@@ -27,7 +27,7 @@ class MuseTalkDataset(Dataset):
         self.audio_window = audio_window
         self.related_window = related_window
 
-        self.whisper_feature_W = 50
+        self.whisper_feature_W = 2
         self.whisper_feature_H = 384
         self.transform = transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
         self.load_filenames()
