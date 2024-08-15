@@ -14,7 +14,8 @@ sys.path.append('.')
 from musetalk.models.vae import VAE
 from musetalk.utils.utils import video2images, video2audio
 from musetalk.utils.preprocessing import get_landmark_and_bbox
-from musetalk.whisper.audio_feature_extractor import AudioFeatureExtractor
+# from musetalk.whisper.audio_feature_extractor import AudioFeatureExtractor
+from musetalk.whisper.feature_extractor import AudioFrameExtractor
 
 from common.utils import recreate_multiple_dirs
 from common.setting import (
@@ -22,7 +23,8 @@ from common.setting import (
     VIDEO_FRAME_DIR, AUDIO_FEATURE_DIR, VIDEO_LATENT_DIR, VAE_PATH
 )
 
-afe = AudioFeatureExtractor()
+# afe = AudioFeatureExtractor()
+afe = AudioFrameExtractor(r"F:\models\whisper-tiny-zh")
 vae: VAE
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -41,7 +43,8 @@ def process_video(video_path="./data/video/zack.mp4", include_latents=False):
     # 提取音频
     audio_path = video2audio(video_path, TMP_AUDIO_DIR)
     # 提取特征
-    feature_chunks = afe.extract_and_chunk_feature(audio_path, fps=25)
+    feature_chunks = afe.extract_frames(audio_path)
+    # feature_chunks = afe.extract_and_chunk_feature(audio_path, fps=25)
     # 截取脸部
     path_pattern = TMP_FRAME_DIR / video_name / "*"
     img_list = list(glob.glob(str(path_pattern)))
