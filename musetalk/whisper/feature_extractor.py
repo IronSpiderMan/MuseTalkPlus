@@ -17,7 +17,7 @@ class AudioFrameExtractor:
     def extract_frames(self, audio_path, return_tensor=False):
         audio, sr = librosa.load(audio_path, sr=self.sample_rate)
         # 计算视频总帧数
-        frames = min(math.floor(audio.shape[-1] / self.audio_fps), self.audio_fps * 30)
+        frames = min(math.floor(audio.shape[-1] / self.audio_fps), self.video_fps * 30)
         input_features = self.processor(audio, sampling_rate=sr, return_tensors='pt').input_features
         if return_tensor:
             segments = torch.zeros((frames, 2, 384))

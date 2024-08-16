@@ -22,6 +22,7 @@ from musetalk.utils.preprocessing import get_landmark_and_bbox
 from musetalk.models.vae import VAE
 from musetalk.models.unet import UNet, PositionalEncoding
 from musetalk.whisper.audio_feature_extractor import AudioFeatureExtractor
+from musetalk.whisper.feature_extractor import AudioFrameExtractor
 from common.utils import make_multiple_dirs, read_images, video2images
 
 
@@ -32,7 +33,8 @@ class Avatar:
             unet: UNet,
             vae: VAE,
             pe: PositionalEncoding,
-            whisper: AudioFeatureExtractor,
+            # whisper: AudioFeatureExtractor,
+            whisper: AudioFrameExtractor,
             avatar_id: str,
             video_path: str = '',
             fps: int = 25,
@@ -209,7 +211,8 @@ class Avatar:
             audio_path = asyncio.run(pronounce(text, "female", "US", stream=False))
         if not fps:
             fps = self.fps
-        whisper_chunks = self.whisper.extract_and_chunk_feature(audio_path, fps)
+        whisper_chunks = self.whisper.extract_frames(audio_path, return_tensor=True)
+        # whisper_chunks = self.whisper.extract_and_chunk_feature(audio_path, fps)
         print(f"processing audio:{audio_path} costs {(time.time() - start_time) * 1000}ms")
         ############################################## inference batch by batch ##############################################
         video_num = len(whisper_chunks)

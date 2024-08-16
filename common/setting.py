@@ -18,7 +18,8 @@ TMP_FRAME_DIR = TMP_DATASET_DIR / "images"
 AVATAR_DIR = BASE_DIR / "results"
 
 # 模型相关
-WHISPER_PATH = BASE_DIR / "models/whisper/tiny.pt"
+# WHISPER_PATH = BASE_DIR / "models/whisper/tiny.pt"
+WHISPER_PATH = BASE_DIR / "models/whisper-tiny-zh"
 UNET_PATH = BASE_DIR / "models/musetalk"
 UNET_CONFIG_PATH = UNET_PATH / "musetalk.json"
 UNET_MODEL_PATH = UNET_PATH / "pytorch_model.bin"

@@ -6,7 +6,6 @@ import cv2
 import torch
 import edge_tts
 import pandas as pd
-import numpy as np
 
 ffmpeg_path = os.getenv('FFMPEG_PATH')
 if ffmpeg_path is None:
@@ -16,10 +15,11 @@ elif ffmpeg_path not in os.getenv('PATH'):
     print("add ffmpeg to path")
     os.environ["PATH"] = f"{ffmpeg_path}:{os.environ['PATH']}"
 
-from musetalk.whisper.audio_feature_extractor import AudioFeatureExtractor
+# from musetalk.whisper.audio_feature_extractor import AudioFeatureExtractor
 from musetalk.models.vae import VAE
 from musetalk.models.unet import UNet, PositionalEncoding
-from common.setting import VAE_PATH, UNET_CONFIG_PATH, UNET_MODEL_PATH
+from musetalk.whisper.feature_extractor import AudioFrameExtractor
+from common.setting import VAE_PATH, UNET_CONFIG_PATH, UNET_MODEL_PATH, WHISPER_PATH
 
 voices = pd.DataFrame([
     {
@@ -46,7 +46,8 @@ voices = pd.DataFrame([
 
 
 def load_all_model():
-    audio_feature_extractor = AudioFeatureExtractor()
+    # audio_feature_extractor = AudioFeatureExtractor()
+    afe = AudioFrameExtractor(WHISPER_PATH)
     vae = VAE(model_path=VAE_PATH)
     unet = UNet(
         unet_config=UNET_CONFIG_PATH,
@@ -54,7 +55,8 @@ def load_all_model():
         use_float16=True
     )
     pe = PositionalEncoding(d_model=384)
-    return audio_feature_extractor, vae, unet, pe
+    # return audio_feature_extractor, vae, unet, pe
+    return afe, vae, unet, pe
 
 
 def get_file_type(video_path):
@@ -82,19 +84,35 @@ def datagen(
         delay_frame=0
 ):
     whisper_batch, latent_batch = [], []
-    for i, w in enumerate(whisper_chunks):
-        idx = (i + delay_frame) % len(vae_encode_latents)
-        latent = vae_encode_latents[idx]
-        whisper_batch.append(w)
-        latent_batch.append(latent)
-
+    for i in range(1, whisper_chunks.shape[0] - 1):
+        # latent = vae_encode_latents[i]
+        whisper_batch.append(torch.cat([
+            whisper_chunks[i - 1, :, :],
+            whisper_chunks[i, :, :],
+            whisper_chunks[i + 1, :, :],
+        ], dim=0)[None])
+        # whisper_batch.append(whisper_chunks[i, i - 1:i + 2])
+        latent_batch.append(vae_encode_latents[i])
         if len(latent_batch) >= batch_size:
-            yield torch.from_numpy(np.stack(whisper_batch)), torch.cat(latent_batch, dim=0)
+            yield torch.cat(whisper_batch, dim=0), torch.cat(latent_batch, dim=0)
             whisper_batch, latent_batch = [], []
 
-    # the last batch may smaller than batch size
     if len(latent_batch) > 0:
-        yield torch.from_numpy(np.stack(whisper_batch)), torch.cat(latent_batch, dim=0)
+        yield torch.cat(whisper_batch, dim=0), torch.cat(latent_batch, dim=0)
+
+    # for i, w in enumerate(whisper_chunks):
+    #     idx = (i + delay_frame) % len(vae_encode_latents)
+    #     latent = vae_encode_latents[idx]
+    #     whisper_batch.append(w)
+    #     latent_batch.append(latent)
+    #
+    #     if len(latent_batch) >= batch_size:
+    #         yield torch.from_numpy(np.stack(whisper_batch)), torch.cat(latent_batch, dim=0)
+    #         whisper_batch, latent_batch = [], []
+    #
+    # # the last batch may smaller than batch size
+    # if len(latent_batch) > 0:
+    #     yield torch.from_numpy(np.stack(whisper_batch)), torch.cat(latent_batch, dim=0)
 
 
 async def pronounce(text, gender, style, save_path="tmp", stream=True):
