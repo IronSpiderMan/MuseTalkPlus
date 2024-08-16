@@ -54,6 +54,13 @@ class MuseTalkDataset(Dataset):
                 self.all_data[video_name]["audio_files"].append(
                     os.path.join(audios_dir, filename)
                 )
+            # 保证图片和音频是帧数一样
+            max_length = min(
+                len(self.all_data[video_name]['image_files']),
+                len(self.all_data[video_name]['audio_files']),
+            )
+            self.all_data[video_name]['image_files'] = self.all_data[video_name]['image_files'][:max_length]
+            self.all_data[video_name]['audio_files'] = self.all_data[video_name]['audio_files'][:max_length]
             # 如果该video下面的内容小于2，则删除
             if len(self.all_data[video_name]['image_files']) < 2:
                 del self.all_data[video_name]
