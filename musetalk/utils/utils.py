@@ -81,16 +81,19 @@ def datagen(
         whisper_chunks,
         vae_encode_latents,
         batch_size=8,
-        delay_frame=0
+        audio_window=5
 ):
     whisper_batch, latent_batch = [], []
-    for i in range(1, whisper_chunks.shape[0] - 1):
+    for i in range(audio_window, whisper_chunks.shape[0] - audio_window):
         # latent = vae_encode_latents[i]
-        whisper_batch.append(torch.cat([
-            whisper_chunks[i - 1, :, :],
-            whisper_chunks[i, :, :],
-            whisper_chunks[i + 1, :, :],
-        ], dim=0)[None])
+
+        whisper_batch.append(whisper_chunks[i - audio_window: i + audio_window + 1, :, :].reshape(1, -1, 384))
+        # print(whisper_batch[-1].shape)
+        # whisper_batch.append(torch.cat([
+        #     whisper_chunks[i - 1, :, :],
+        #     whisper_chunks[i, :, :],
+        #     whisper_chunks[i + 1, :, :],
+        # ], dim=0)[None])
         # whisper_batch.append(whisper_chunks[i, i - 1:i + 2])
         latent_batch.append(vae_encode_latents[i])
         if len(latent_batch) >= batch_size:

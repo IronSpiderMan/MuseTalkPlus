@@ -26,7 +26,7 @@ vae.requires_grad_(False)
 pe = PositionalEncoding().to(device)
 
 
-def training_loop(epochs, lr, batch_size, mixed_precision='no', max_checkpoints=10, audio_window=5):
+def training_loop(epochs, lr, batch_size, mixed_precision='no', max_checkpoints=10, audio_window=5, resume_from=None):
     train_loader = DataLoader(
         MuseTalkDataset(audio_window=audio_window), batch_size=batch_size, num_workers=4, pin_memory=True
     )
@@ -129,13 +129,19 @@ def parse_args():
         type=int,
         default=5
     )
+    parser.add_argument(
+        "--resume_from",
+        type=str,
+        default=None,
+    )
     return parser.parse_args()
 
 
 def main():
     args = parse_args()
     training_loop(
-        args.epochs, lr=1e-5, batch_size=args.batch_size, mixed_precision="no", audio_window=args.audio_window
+        args.epochs, lr=1e-5, batch_size=args.batch_size, mixed_precision="no", audio_window=args.audio_window,
+        resume_from=args.resume_from
     )
 
 
