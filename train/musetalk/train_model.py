@@ -1,7 +1,8 @@
+import os
 import sys
 import json
 import datetime
-import os
+from argparse import ArgumentParser
 
 import torch
 from tqdm import tqdm
@@ -25,8 +26,10 @@ vae.requires_grad_(False)
 pe = PositionalEncoding().to(device)
 
 
-def training_loop(epochs, lr, batch_size, mixed_precision='no', max_checkpoints=10):
-    train_loader = DataLoader(MuseTalkDataset(), batch_size=batch_size, num_workers=4, pin_memory=True)
+def training_loop(epochs, lr, batch_size, mixed_precision='no', max_checkpoints=10, audio_window=5):
+    train_loader = DataLoader(
+        MuseTalkDataset(audio_window=audio_window), batch_size=batch_size, num_workers=4, pin_memory=True
+    )
     with open(UNET_CONFIG_PATH, "r") as f:
         unet_config = json.load(f)
     model = UNet2DConditionModel(**unet_config).to(device)
@@ -109,8 +112,31 @@ def training_loop(epochs, lr, batch_size, mixed_precision='no', max_checkpoints=
                     accelerator.save(accelerator.get_state_dict(model), min_loss_checkpoint_copy)
 
 
+def parse_args():
+    parser = ArgumentParser()
+    parser.add_argument(
+        "--batch_size",
+        type=int,
+        default=8
+    )
+    parser.add_argument(
+        "--epochs",
+        type=int,
+        default=10
+    )
+    parser.add_argument(
+        "--audio_window",
+        type=int,
+        default=5
+    )
+    return parser.parse_args()
+
+
 def main():
-    training_loop(10, lr=1e-5, batch_size=8, mixed_precision="no")
+    args = parse_args()
+    training_loop(
+        args.epochs, lr=1e-5, batch_size=args.batch_size, mixed_precision="no", audio_window=args.audio_window
+    )
 
 
 if __name__ == '__main__':
