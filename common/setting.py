@@ -22,7 +22,7 @@ WHISPER_PATH = BASE_DIR / "models/whisper/tiny.pt"
 WHISPER_FT_PATH = BASE_DIR / "models/whisper-tiny-zh"
 UNET_PATH = BASE_DIR / "models/musetalk"
 UNET_CONFIG_PATH = UNET_PATH / "musetalk.json"
-UNET_MODEL_PATH = UNET_PATH / "pytorch_model.bin"
+UNET_MODEL_PATH = UNET_PATH / "diffusion_pytorch_model.bin"
 VAE_PATH = BASE_DIR / "models/sd-vae-ft-mse"
 DWPOST_PATH = BASE_DIR / "models/dwpose/dw-ll_ucoco_384.pth"
 

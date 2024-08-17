@@ -220,7 +220,8 @@ class Avatar:
         gen = datagen(
             whisper_chunks,
             self.input_latent_list_cycle,
-            self.batch_size
+            self.batch_size,
+            delay_frame=self.idx
         )
         frame_idx = 0
         for i, (whisper_batch, latent_batch) in enumerate(

@@ -52,7 +52,6 @@ def recreate_multiple_dirs(path_list):
 
 
 def read_images(img_list, grayscale=False):
-    print("reading images using OpenCV asynchronously in grayscale...")
     frames = []
     with ThreadPoolExecutor() as executor:
         # Use partial to fix the flags parameter for cv2.imread
@@ -60,6 +59,6 @@ def read_images(img_list, grayscale=False):
             imread = partial(cv2.imread, cv2.IMREAD_GRAYSCALE)
         else:
             imread = cv2.imread
-        for frame in tqdm(executor.map(imread, img_list)):
+        for frame in tqdm(executor.map(imread, img_list), total=len(img_list), desc='Reading images'):
             frames.append(frame)
     return frames
