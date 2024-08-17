@@ -15,11 +15,11 @@ elif ffmpeg_path not in os.getenv('PATH'):
     print("add ffmpeg to path")
     os.environ["PATH"] = f"{ffmpeg_path}:{os.environ['PATH']}"
 
-# from musetalk.whisper.audio_feature_extractor import AudioFeatureExtractor
 from musetalk.models.vae import VAE
 from musetalk.models.unet import UNet, PositionalEncoding
 from musetalk.whisper.feature_extractor import AudioFrameExtractor
-from common.setting import VAE_PATH, UNET_CONFIG_PATH, UNET_MODEL_PATH, WHISPER_PATH
+from musetalk.whisper.audio_feature_extractor import AudioFeatureExtractor
+from common.setting import VAE_PATH, UNET_CONFIG_PATH, UNET_MODEL_PATH, WHISPER_PATH, WHISPER_FT_PATH
 
 voices = pd.DataFrame([
     {
@@ -45,9 +45,13 @@ voices = pd.DataFrame([
 ])
 
 
-def load_all_model():
-    # audio_feature_extractor = AudioFeatureExtractor()
-    afe = AudioFrameExtractor(WHISPER_PATH)
+def load_all_model(afe: str):
+    if afe.lower() == "musetalk":
+        afe = AudioFeatureExtractor()
+    elif afe.lower() == "custom":
+        afe = AudioFrameExtractor(WHISPER_PATH)
+    else:
+        afe = AudioFrameExtractor(WHISPER_PATH)
     vae = VAE(model_path=VAE_PATH)
     unet = UNet(
         unet_config=UNET_CONFIG_PATH,

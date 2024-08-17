@@ -8,14 +8,6 @@ from musetalk.utils.utils import load_all_model
 
 AVATAR_DIR = "./results/avatars"
 
-whisper, vae, unet, pe = load_all_model()
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-timesteps = torch.tensor([0], device=device)
-pe = pe.half()
-vae.vae = vae.vae.half()
-unet.model = unet.model.half()
-# whisper.model = whisper.model.half()
-
 if __name__ == "__main__":
     '''
     This script is used to simulate online chatting and applies necessary pre-processing such as face detection and face parsing in advance. During online chatting, only UNet and the VAE decoder are involved, which makes MuseTalk real-time.
@@ -47,9 +39,18 @@ if __name__ == "__main__":
         action="store_true",
         help="Whether skip saving images for better generation speed calculation",
     )
-
+    parser.add_argument(
+        "--afe",
+        type=str,
+        default="musetalk"
+    )
     args = parser.parse_args()
-
+    whisper, vae, unet, pe = load_all_model(args.afe)
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    timesteps = torch.tensor([0], device=device)
+    pe = pe.half()
+    vae.vae = vae.vae.half()
+    unet.model = unet.model.half()
     inference_config = OmegaConf.load(args.inference_config)
 
     for avatar_id in inference_config:

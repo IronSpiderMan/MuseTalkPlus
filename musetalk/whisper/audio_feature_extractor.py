@@ -32,6 +32,12 @@ class AudioFeatureExtractor:
         model.load_state_dict(ckpt["model_state_dict"])
         return model.to(self.device)
 
+    def extract_frames(self, audio_path, return_tensor=True):
+        if return_tensor:
+            return torch.tensor(self.extract_and_chunk_feature(audio_path, 25))
+        else:
+            return self.extract_and_chunk_feature(audio_path, 25)
+
     @timeit
     def extract_and_chunk_feature(self, audio_path, fps=26):
         return self.chunk_feature(self.extract_feature(audio_path), fps)

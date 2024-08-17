@@ -33,8 +33,7 @@ class Avatar:
             unet: UNet,
             vae: VAE,
             pe: PositionalEncoding,
-            # whisper: AudioFeatureExtractor,
-            whisper: AudioFrameExtractor,
+            whisper: AudioFrameExtractor | AudioFeatureExtractor,
             avatar_id: str,
             video_path: str = '',
             fps: int = 25,
@@ -212,6 +211,7 @@ class Avatar:
         if not fps:
             fps = self.fps
         whisper_chunks = self.whisper.extract_frames(audio_path, return_tensor=True)
+        print(whisper_chunks.shape)
         # whisper_chunks = self.whisper.extract_and_chunk_feature(audio_path, fps)
         print(f"processing audio:{audio_path} costs {(time.time() - start_time) * 1000}ms")
         ############################################## inference batch by batch ##############################################
