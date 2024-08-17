@@ -63,17 +63,16 @@ def training_loop(epochs, lr, batch_size, mixed_precision='no', max_checkpoints=
                 masked_image.to(device),
                 audio_feature.to(device)
             )
-            # 获取目标的latents
-            latents = vae.encode(target_image.to(vae.dtype)).latent_dist.sample()
-            latents = latents * vae.config.scaling_factor
-
-            # 获取输入的latents
-            masked_latents = vae.encode(masked_image.to(vae.dtype)).latent_dist.sample()
-            masked_latents = masked_latents * vae.config.scaling_factor
-            related_image = vae.encode(related_image.to(vae.dtype)).latent_dist.sample()
-            related_image = related_image * vae.config.scaling_factor
-            input_latents = torch.cat([masked_latents, related_image], dim=1)
             with torch.no_grad():
+                # 获取目标的latents
+                latents = vae.encode(target_image.to(vae.dtype)).latent_dist.sample()
+                latents = latents * vae.config.scaling_factor
+                # 获取输入的latents
+                masked_latents = vae.encode(masked_image.to(vae.dtype)).latent_dist.sample()
+                masked_latents = masked_latents * vae.config.scaling_factor
+                related_image = vae.encode(related_image.to(vae.dtype)).latent_dist.sample()
+                related_image = related_image * vae.config.scaling_factor
+                input_latents = torch.cat([masked_latents, related_image], dim=1)
                 audio_feature = pe(audio_feature)
             # Forward
             image_pred = model(input_latents, 0, encoder_hidden_states=audio_feature).sample
