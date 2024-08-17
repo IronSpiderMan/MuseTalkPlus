@@ -16,7 +16,7 @@ from diffusers import AutoencoderKL, UNet2DConditionModel
 sys.path.append('.')
 
 from train.musetalk.datasets import MuseTalkDataset
-from common.setting import VAE_PATH, UNET_CONFIG_PATH, TRAIN_OUTPUT_DIR
+from common.setting import VAE_PATH, UNET_CONFIG_PATH, TRAIN_OUTPUT_DIR, UNET_PATH
 from musetalk.models.unet import PositionalEncoding
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -30,9 +30,10 @@ def training_loop(epochs, lr, batch_size, mixed_precision='no', max_checkpoints=
     train_loader = DataLoader(
         MuseTalkDataset(audio_window=audio_window), batch_size=batch_size, num_workers=4, pin_memory=True
     )
-    with open(UNET_CONFIG_PATH, "r") as f:
-        unet_config = json.load(f)
-    model = UNet2DConditionModel(**unet_config).to(device)
+    # with open(UNET_CONFIG_PATH, "r") as f:
+    #     unet_config = json.load(f)
+    model = UNet2DConditionModel.from_pretrained(UNET_PATH).to(device)
+    # model = UNet2DConditionModel(**unet_config).to(device)
     optimizer = optim.AdamW(params=model.parameters(), lr=lr)
     lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(
         optimizer=optimizer,
