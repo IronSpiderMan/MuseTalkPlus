@@ -25,11 +25,11 @@ def video2images(vid_path, save_path):
     ffmpeg_command = [
         "ffmpeg",
         "-i", vid_path,
-        "-vf", "fps=26",
+        "-vf", "fps=25",
         output_pattern
     ]
     try:
-        subprocess.run(ffmpeg_command, check=True)
+        subprocess.run(ffmpeg_command, check=True, stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
         print(f"Frames extracted to {save_path}")
     except subprocess.CalledProcessError as e:
         print(f"An error occurred: {e}")
