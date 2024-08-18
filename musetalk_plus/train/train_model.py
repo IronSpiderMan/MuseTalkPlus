@@ -74,7 +74,7 @@ def training_loop(epochs, lr, batch_size, mixed_precision='no', max_checkpoints=
                 input_latents = torch.cat([avatar_image, masked_latents], dim=1)
                 # audio_feature = pe(audio_feature)
             # Forward
-            image_pred = model((input_latents, audio_feature)).sample
+            image_pred = model((input_latents, audio_feature))
             loss = F.mse_loss(image_pred.float(), latents.float(), reduction="mean")
             # Backward
             accelerator.backward(loss)
