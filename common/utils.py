@@ -35,6 +35,24 @@ def video2images(vid_path, save_path):
         print(f"An error occurred: {e}")
 
 
+def video2audio(vid_path, save_path):
+    filename = os.path.basename(vid_path).split(".")[0] + ".mp3"
+    save_path = os.path.join(save_path, filename)
+    ffmpeg_command = [
+        "ffmpeg",
+        "-i", vid_path,
+        "-q:a", "0",
+        "-map", "a",
+        save_path, "-y"
+    ]
+    try:
+        subprocess.run(ffmpeg_command, check=True, stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+        print(f"Frames extracted to {save_path}")
+        return save_path
+    except subprocess.CalledProcessError as e:
+        print(f"An error occurred: {e}")
+
+
 def make_multiple_dirs(path_list):
     for path in path_list:
         os.makedirs(path) if not os.path.exists(path) else None

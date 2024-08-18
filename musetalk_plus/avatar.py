@@ -37,7 +37,7 @@ class Avatar:
         self.device = device
         self.dtype = dtype
         self.preparation = preparation
-        self.vae = AutoencoderKL.from_pretrained(VAE_PATH).to(device, dtype=dtype)
+        self.vae = AutoencoderKL.from_pretrained(VAE_PATH, use_safetensors=False).to(device, dtype=dtype)
         self.afe = AudioFrameExtractor(WHISPER_FT_PATH, device=device, dtype=dtype)
         self.image_processor = ImageProcessor()
         self.unet = MuseTalkModel(UNET_PATH).to(device, dtype=dtype)
@@ -171,6 +171,7 @@ class Avatar:
                 frame[y1:y2, x1:x2, :] = resized_image
                 cv2.imwrite(str(self.tmp_path / f'{frame_idx:08d}.jpg'), frame)
                 frame_idx += 1
+                self.idx += 1
         images2video(self.tmp_path, self.vid_output_path / (Path(audio_path).stem + '.mp4'))
         shutil.rmtree(self.tmp_path)
 

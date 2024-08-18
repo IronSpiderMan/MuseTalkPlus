@@ -7,6 +7,8 @@ class FaceRecognizer:
 
     @staticmethod
     def face_locations(image):
+        if isinstance(image, str):
+            image = face_recognition.load_image_file(image)
         locations = face_recognition.face_locations(image)
         if len(locations) == 0:
             return None
