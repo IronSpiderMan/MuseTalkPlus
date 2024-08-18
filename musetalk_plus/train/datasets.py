@@ -59,8 +59,8 @@ class MuseTalkDataset(Dataset):
             )
             self.all_data[video_name]['image_files'] = self.all_data[video_name]['image_files'][:max_length]
             self.all_data[video_name]['audio_files'] = self.all_data[video_name]['audio_files'][:max_length]
-            # 如果该video下面的内容小于2，则删除
-            if len(self.all_data[video_name]['image_files']) < 2:
+            # 过滤5秒以下的视频
+            if len(self.all_data[video_name]['image_files']) < 25 * 5:
                 del self.all_data[video_name]
         return self.all_data
 
