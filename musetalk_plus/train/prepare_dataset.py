@@ -10,8 +10,8 @@ from tqdm import tqdm
 
 sys.path.append('.')
 
-from musetalk_plus.whisper.feature_extractor import AudioFrameExtractor
 from musetalk_plus.faces.face_recognize import FaceRecognizer
+from musetalk_plus.whisper.feature_extractor import AudioFrameExtractor
 
 from common.utils import recreate_multiple_dirs, read_images, video2images, video2audio
 from common.setting import (
@@ -29,8 +29,8 @@ def process_video(video_path, fixed_face=True):
     face_location = None
     video_name = video_path.stem
     recreate_multiple_dirs([
-        VIDEO_FRAME_DIR / video_name, VIDEO_LATENT_DIR / video_name,
-        AUDIO_FEATURE_DIR / video_name, TMP_FRAME_DIR, TMP_AUDIO_DIR
+        VIDEO_FRAME_DIR / video_name, AUDIO_FEATURE_DIR / video_name,
+        TMP_FRAME_DIR, TMP_AUDIO_DIR
     ])
     # 提取视频帧
     video2images(video_path, TMP_FRAME_DIR)
@@ -42,9 +42,23 @@ def process_video(video_path, fixed_face=True):
     # 截取脸部，如果设置了fixed_face，则只使用第一帧的面部位置截取
     if fixed_face:
         if face_location is None:
-            y1, x2, y2, x1 = fr.face_locations(str(img_list[0]))
-            face_location = [x1, y1, x2, y2]
+            # 找到第一张识别到人脸的frame
+            while img_list:
+                img = img_list[0]
+                location = fr.face_locations(img)
+                if location:
+                    y1, x2, y2, x1 = location
+                    face_location = [x1, y1, x2, y2]
+                    break
+                else:
+                    img_list.pop(0)
+        if len(img_list) == 0:
+            # 如果没有人脸，则删除目录
+            shutil.rmtree(VIDEO_FRAME_DIR / video_name)
+            shutil.rmtree(AUDIO_FEATURE_DIR / video_name)
+            return
         coord_list = [[*face_location] for _ in range(len(img_list))]
+    # TODO 次部分还未完成，存在bug
     else:
         coord_list = []
         for img in img_list:
