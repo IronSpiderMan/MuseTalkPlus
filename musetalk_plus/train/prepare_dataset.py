@@ -42,7 +42,7 @@ def process_video(video_path, fixed_face=True):
     # 截取脸部，如果设置了fixed_face，则只使用第一帧的面部位置截取
     if fixed_face:
         if face_location is None:
-            y1, x2, y2, x1 = fr.face_locations(img_list[0])
+            y1, x2, y2, x1 = fr.face_locations(str(img_list[0]))
             face_location = [x1, y1, x2, y2]
         coord_list = [[*face_location] for _ in range(len(img_list))]
     else:
