@@ -10,13 +10,13 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from accelerate import Accelerator
 from accelerate.utils import set_seed
-from diffusers import AutoencoderKL, UNet2DConditionModel
+from diffusers import AutoencoderKL
 
 sys.path.append('.')
 
 from musetalk_plus.train.datasets import MuseTalkDataset
 from musetalk_plus.models import MuseTalkModel
-from common.setting import VAE_PATH, UNET_CONFIG_PATH, TRAIN_OUTPUT_DIR, UNET_PATH
+from common.setting import VAE_PATH, TRAIN_OUTPUT_DIR, UNET_PATH
 from musetalk.models.unet import PositionalEncoding
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -30,7 +30,6 @@ def training_loop(epochs, lr, batch_size, mixed_precision='no', max_checkpoints=
     train_loader = DataLoader(
         MuseTalkDataset(audio_window=audio_window), batch_size=batch_size, num_workers=4, pin_memory=True
     )
-    # model = UNet2DConditionModel.from_pretrained(UNET_PATH).to(device)
     model = MuseTalkModel(UNET_PATH).to(device)
     optimizer = optim.AdamW(params=model.parameters(), lr=lr)
     lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(
@@ -62,17 +61,16 @@ def training_loop(epochs, lr, batch_size, mixed_precision='no', max_checkpoints=
                 masked_image.to(device),
                 audio_feature.to(device)
             )
-            with torch.no_grad():
-                # 获取目标的latents
-                latents = vae.encode(target_image.to(vae.dtype)).latent_dist.sample()
-                latents = latents * vae.config.scaling_factor
-                # 获取输入的latents
-                avatar_image = vae.encode(avatar_image.to(vae.dtype)).latent_dist.sample()
-                avatar_image = avatar_image * vae.config.scaling_factor
-                masked_latents = vae.encode(masked_image.to(vae.dtype)).latent_dist.sample()
-                masked_latents = masked_latents * vae.config.scaling_factor
-                input_latents = torch.cat([avatar_image, masked_latents], dim=1)
-                # audio_feature = pe(audio_feature)
+            # 获取目标的latents
+            latents = vae.encode(target_image.to(vae.dtype)).latent_dist.sample()
+            latents = latents * vae.config.scaling_factor
+            # 获取输入的latents
+            avatar_image = vae.encode(avatar_image.to(vae.dtype)).latent_dist.sample()
+            avatar_image = avatar_image * vae.config.scaling_factor
+            masked_latents = vae.encode(masked_image.to(vae.dtype)).latent_dist.sample()
+            masked_latents = masked_latents * vae.config.scaling_factor
+            input_latents = torch.cat([avatar_image, masked_latents], dim=1)
+            # audio_feature = pe(audio_feature)
             # Forward
             image_pred = model((input_latents, audio_feature))
             loss = F.mse_loss(image_pred.float(), latents.float(), reduction="mean")
@@ -107,7 +105,7 @@ def training_loop(epochs, lr, batch_size, mixed_precision='no', max_checkpoints=
 
                     # 复制最小损失的检查点
                     min_loss_checkpoint_copy = TRAIN_OUTPUT_DIR / "best_checkpoint.pt"
-                    accelerator.save(accelerator.get_state_dict(model), min_loss_checkpoint_copy)
+                    accelerator.save(accelerator.get_state_dict(model.unet), min_loss_checkpoint_copy)
 
 
 def parse_args():
