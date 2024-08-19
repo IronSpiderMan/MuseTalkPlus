@@ -38,7 +38,7 @@ def process_video(video_path, fixed_face=True):
     audio_path = video2audio(video_path, TMP_AUDIO_DIR)
     # 提取特征
     feature_chunks = afe.extract_frames(audio_path)
-    img_list = list(TMP_FRAME_DIR.glob('*'))
+    img_list = [str(img) for img in TMP_FRAME_DIR.glob('*')]
     # 截取脸部，如果设置了fixed_face，则只使用第一帧的面部位置截取
     if fixed_face:
         if face_location is None:
