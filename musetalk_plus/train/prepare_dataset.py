@@ -16,11 +16,12 @@ from musetalk_plus.faces.face_recognize import FaceRecognizer
 from common.utils import recreate_multiple_dirs, read_images, video2images, video2audio
 from common.setting import (
     TMP_FRAME_DIR, TMP_AUDIO_DIR, TMP_DATASET_DIR,
-    VIDEO_FRAME_DIR, AUDIO_FEATURE_DIR, VIDEO_LATENT_DIR
+    VIDEO_FRAME_DIR, AUDIO_FEATURE_DIR, VIDEO_LATENT_DIR,
+    WHISPER_FT_PATH
 )
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
-afe = AudioFrameExtractor(r"F:\models\whisper-tiny-zh")
+afe = AudioFrameExtractor(WHISPER_FT_PATH)
 fr = FaceRecognizer()
 
 
