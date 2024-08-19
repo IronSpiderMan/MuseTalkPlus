@@ -88,7 +88,7 @@ def training_loop(epochs, lr, batch_size, mixed_precision='no', max_checkpoints=
 
                 # 保存当前检查点
                 checkpoint_path = TRAIN_OUTPUT_DIR / f"checkpoint-epoch-{epoch + 1}-iters-{step + 1}-loss-{loss:.5f}.pt"
-                accelerator.save(accelerator.get_state_dict(model), checkpoint_path)
+                accelerator.save(accelerator.get_state_dict(model.unet), checkpoint_path)
                 checkpoint_list.append(checkpoint_path)
 
                 # 维护最多10个检查点
