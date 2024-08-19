@@ -23,8 +23,7 @@ from common.setting import AVATAR_DIR, UNET_PATH, VAE_PATH, WHISPER_FT_PATH
 class Avatar:
     def __init__(
             self, avatar_id: str, video_path: str, bbox_shift_size: int = 5, device: Any = 'cuda',
-            dtype=torch.float16,
-            preparation=False
+            dtype=torch.float16, fixed_face=True
     ):
         """
         avatar_id: avatar的唯一标识
@@ -36,16 +35,12 @@ class Avatar:
         self.bbox_shift_size = bbox_shift_size
         self.device = device
         self.dtype = dtype
-        self.preparation = preparation
+        self.fixed_face = fixed_face
         self.vae = AutoencoderKL.from_pretrained(VAE_PATH, use_safetensors=False).to(device, dtype=dtype)
         self.afe = AudioFrameExtractor(WHISPER_FT_PATH, device=device, dtype=dtype)
         self.image_processor = ImageProcessor()
         self.unet = MuseTalkModel(UNET_PATH).to(device, dtype=dtype)
         self.face_recognizer = FaceRecognizer()
-        # if preparation:
-        #     self.face_detector = face_detection.build_detector(
-        #         "DSFDDetector", confidence_threshold=.5, nms_iou_threshold=.3
-        #     )
 
         # 保存avatar相关文件的目录
         self.avatar_path = AVATAR_DIR / avatar_id
@@ -62,6 +57,10 @@ class Avatar:
         self.input_latent_cycle = []
         self.coord_cycle = []
         self.mask_cycle = []
+
+        # 其它属性
+        self.face_location = None
+        self.default_location = [0, 0, 0, 0]
 
         # 初始化数字人需要的相关信息
         self.init_avatar()
@@ -120,20 +119,38 @@ class Avatar:
         coord_list = []
         face_latent_list = []
         avatar_face_latent = None
-        for idx, frame in tqdm(enumerate(frame_list), desc='detect face and encode face image', total=len(frame_list)):
-            # TODO: 此处可能识别不到人脸
-            location = self.face_recognizer.face_locations(frame)
-            landmark_mask = self.face_recognizer.face_landmarks(frame, [location])
-            cv2.imwrite(str(self.full_masks_path / f'{idx:08d}.jpg'), landmark_mask)
+        # 检测人脸
+        for idx, frame in tqdm(enumerate(frame_list), desc="Detecting faces", total=len(frame_list)):
+            if not self.fixed_face or self.face_location is None:
+                location = self.face_recognizer.face_locations(frame)
+                if location is None:
+                    coord_list.append(self.default_location)
+                else:
+                    y1, x2, y2, x1 = location
+                    # 如果选择固定面部，则全部使用同一个面部位置
+                    if self.fixed_face and self.face_location is None:
+                        self.face_location = [x1, y1, x2, y2]
+                        coord_list = [self.face_location] * len(frame_list)
+                    if not self.fixed_face:
+                        coord_list.append([x1, y1, x2, y2])
+            # TODO: landmark可能为空
+            landmark_mask = self.face_recognizer.face_landmarks(frame)
             mask_list.append(landmark_mask)
-            y1, x2, y2, x1 = location
-            # x1, y1, x2, y2 = self.shift_bbox((x1, y1, x2, y2))
-            coord_list.append([x1, y1, x2, y2])
+            cv2.imwrite(str(self.full_masks_path / f'{idx:08d}.jpg'), landmark_mask)
+
+        for idx, (frame, coord) in tqdm(
+                enumerate(zip(frame_list, coord_list)),
+                desc='Encode face image',
+                total=len(frame_list)
+        ):
+            x1, y1, x2, y2 = coord
             face = frame[y1:y2, x1:x2, :]
+            # 编码人物形象图片
             if avatar_face_latent is None:
                 avatar_face = self.image_processor(face)[None].to(self.device, dtype=self.dtype)
                 avatar_face_latent = self.vae.encode(avatar_face).latent_dist.sample()
                 avatar_face_latent = avatar_face_latent * self.vae.config.scaling_factor
+            # 编码当前帧masked图片
             masked_face = self.image_processor(face.copy(), half_mask=True)[None].to(self.device, dtype=self.dtype)
             masked_latents = self.vae.encode(masked_face).latent_dist.sample()
             masked_latents = masked_latents * self.vae.config.scaling_factor
