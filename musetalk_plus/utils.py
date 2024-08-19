@@ -12,12 +12,13 @@ def datagen(
 ):
     whisper_batch, latent_batch = [], []
     for i in range(audio_window, whisper_chunks.shape[0] - audio_window):
-        idx = (i + delay_frames) % vae_encode_latents.shape[0]
+        # idx = (i + delay_frames) % vae_encode_latents.shape[0]
         whisper_batch.append(whisper_chunks[i - audio_window: i + audio_window + 1, :, :].reshape(1, -1, 384))
-        latent_batch.append(vae_encode_latents[idx:idx + 1])
+        latent_batch.append(vae_encode_latents[delay_frames:delay_frames + 1])
         if len(latent_batch) >= batch_size:
             yield torch.cat(whisper_batch, dim=0), torch.cat(latent_batch, dim=0)
             whisper_batch, latent_batch = [], []
+        delay_frames = (delay_frames + 1) % vae_encode_latents.shape[0]
     if len(latent_batch) > 0:
         yield torch.cat(whisper_batch, dim=0), torch.cat(latent_batch, dim=0)
 

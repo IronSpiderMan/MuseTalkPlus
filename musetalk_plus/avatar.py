@@ -59,6 +59,7 @@ class Avatar:
         self.mask_cycle = []
 
         # 其它属性
+        self.audio_window = 5
         self.face_location = None
         self.default_location = [0, 0, 0, 0]
 
@@ -172,7 +173,7 @@ class Avatar:
         self.tmp_path.mkdir(exist_ok=True)
         frame_idx = self.idx = 0
         whisper_chunks = self.afe.extract_frames(audio_path, return_tensor=True)
-        gen = datagen(whisper_chunks, self.input_latent_cycle, 4, delay_frames=self.idx)
+        gen = datagen(whisper_chunks, self.input_latent_cycle, 4, delay_frames=self.idx, audio_window=self.audio_window)
         for i, (whisper_batch, latent_batch) in enumerate(
                 tqdm(gen, total=whisper_chunks.shape[0] // 4, desc='Inference...')
         ):
