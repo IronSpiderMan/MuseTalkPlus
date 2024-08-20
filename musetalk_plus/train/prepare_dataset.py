@@ -95,14 +95,13 @@ def process_video(video_path):
     audio_path = video2audio(video_path, TMP_AUDIO_DIR)
     # 提取特征
     feature_chunks = afe.extract_frames(audio_path)
-    img_list = [str(img) for img in TMP_FRAME_DIR.glob('*')]
-    for fidx, (img, chunk) in tqdm(
-            enumerate(zip(img_list, feature_chunks)),
-            total=len(img_list),
+    frame_list = read_images([str(img) for img in TMP_FRAME_DIR.glob('*')])
+    for fidx, (frame, chunk) in tqdm(
+            enumerate(zip(frame_list, feature_chunks)),
+            total=len(frame_list),
             desc=f"Processing video: {video_name}"
     ):
-        frame = cv2.imread(str(img))
-        pts = fa.analysis(img)
+        pts = fa.analysis(frame)
         bbox = fa.face_location(pts)
         x1, y1, x2, y2 = bbox
         crop_frame = frame[y1:y2, x1:x2]

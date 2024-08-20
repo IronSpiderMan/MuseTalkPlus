@@ -14,9 +14,10 @@ from musetalk_plus.utils import datagen, images2video
 from musetalk_plus.models import MuseTalkModel
 from musetalk_plus.processors import ImageProcessor
 from musetalk_plus.faces.face_recognize import FaceRecognizer
+from musetalk_plus.faces.face_analysis import FaceAnalyst
 from musetalk_plus.whisper.feature_extractor import AudioFrameExtractor
 from common.utils import video2images, read_images
-from common.setting import AVATAR_DIR, UNET_PATH, VAE_PATH, WHISPER_FT_PATH
+from common.setting import AVATAR_DIR, UNET_PATH, VAE_PATH, WHISPER_FT_PATH, DWPOST_PATH, DWPOSE_CONFIG_PATH
 
 
 @torch.no_grad()
@@ -40,7 +41,8 @@ class Avatar:
         self.afe = AudioFrameExtractor(WHISPER_FT_PATH, device=device, dtype=dtype)
         self.image_processor = ImageProcessor()
         self.unet = MuseTalkModel(UNET_PATH).to(device, dtype=dtype)
-        self.face_recognizer = FaceRecognizer()
+        # self.face_recognizer = FaceRecognizer()
+        self.face_analyst = None
 
         # 保存avatar相关文件的目录
         self.avatar_path = AVATAR_DIR / avatar_id
@@ -110,6 +112,7 @@ class Avatar:
 
     def prepare_avatar(self):
         print("preparing avatar ...")
+        self.face_analyst = FaceAnalyst(DWPOSE_CONFIG_PATH, DWPOST_PATH)
         self.init_directories()
         video2images(self.video_path, self.full_images_path)
         input_image_list = sorted(
@@ -122,21 +125,12 @@ class Avatar:
         avatar_face_latent = None
         # 检测人脸
         for idx, frame in tqdm(enumerate(frame_list), desc="Detecting faces", total=len(frame_list)):
-            if not self.fixed_face or self.face_location is None:
-                location = self.face_recognizer.face_locations(frame)
-                if location is None:
-                    coord_list.append(self.default_location)
-                else:
-                    y1, x2, y2, x1 = location
-                    # 如果选择固定面部，则全部使用同一个面部位置
-                    if self.fixed_face and self.face_location is None:
-                        self.face_location = [x1, y1, x2, y2]
-                        coord_list = [self.face_location] * len(frame_list)
-                    if not self.fixed_face:
-                        coord_list.append([x1, y1, x2, y2])
-            # TODO: landmark可能为空
-            landmark_mask = self.face_recognizer.face_landmarks(frame)
+            pts = self.face_analyst.analysis(frame)
+            h, w = frame.shape[:2]
+            landmark_mask = self.face_analyst.face_landmark_mask((w, h), pts)
+            bbox = self.face_analyst.face_location(pts)
             mask_list.append(landmark_mask)
+            coord_list.append(bbox)
             cv2.imwrite(str(self.full_masks_path / f'{idx:08d}.jpg'), landmark_mask)
 
         for idx, (frame, coord) in tqdm(
@@ -166,6 +160,8 @@ class Avatar:
         # 保存相关信息
         np.save(self.coords_path, self.coord_cycle)
         np.save(self.latents_path, self.input_latent_cycle.numpy())
+
+        del self.face_analyst
 
     @torch.no_grad()
     def inference(self, audio_path):
