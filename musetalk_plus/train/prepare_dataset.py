@@ -24,7 +24,7 @@ from common.setting import (
 device = "cuda" if torch.cuda.is_available() else "cpu"
 afe = AudioFrameExtractor(WHISPER_FT_PATH)
 # fr = FaceRecognizer()
-fa = FaceAnalyst(DWPOSE_CONFIG_PATH, DWPOST_PATH)
+fa = FaceAnalyst(str(DWPOSE_CONFIG_PATH), str(DWPOST_PATH))
 
 
 # def process_video(video_path, fixed_face=True):
