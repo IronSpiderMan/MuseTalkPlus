@@ -43,7 +43,7 @@ class FaceAnalyst:
         min_y = np.min(face_area[:, 1])
         max_x = np.max(face_area[:, 0])
         max_y = np.max(face_area[:, 1])
-        return min_x, min_y - shift, max_x, max_y
+        return int(min_x), int(min_y - shift), int(max_x), int(max_y)
 
 
 if __name__ == '__main__':
