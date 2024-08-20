@@ -69,7 +69,7 @@ def training_loop(epochs, lr, batch_size, mixed_precision='no', max_checkpoints=
             avatar_image = avatar_image * vae.config.scaling_factor
             masked_latents = vae.encode(masked_image.to(vae.dtype)).latent_dist.sample()
             masked_latents = masked_latents * vae.config.scaling_factor
-            input_latents = torch.cat([avatar_image, masked_latents], dim=1)
+            input_latents = torch.cat([masked_latents, avatar_image], dim=1)
             # audio_feature = pe(audio_feature)
             # Forward
             image_pred = model((input_latents, audio_feature))
