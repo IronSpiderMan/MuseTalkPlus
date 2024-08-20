@@ -95,7 +95,7 @@ def process_video(video_path):
     audio_path = video2audio(video_path, TMP_AUDIO_DIR)
     # 提取特征
     feature_chunks = afe.extract_frames(audio_path)
-    img_list = TMP_FRAME_DIR.glob('*')
+    img_list = [str(img) for img in TMP_FRAME_DIR.glob('*')]
     for fidx, (img, chunk) in tqdm(
             enumerate(zip(img_list, feature_chunks)),
             total=len(img_list),
