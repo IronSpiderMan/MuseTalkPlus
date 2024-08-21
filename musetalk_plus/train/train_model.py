@@ -23,12 +23,14 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 
 vae = AutoencoderKL.from_pretrained(VAE_PATH, subfolder="vae").to(device)
 vae.requires_grad_(False)
-pe = PositionalEncoding().to(device)
+
+
+# pe = PositionalEncoding().to(device)
 
 
 def training_loop(epochs, lr, batch_size, mixed_precision='no', max_checkpoints=10, audio_window=5):
     train_loader = DataLoader(
-        MuseTalkDataset(audio_window=audio_window), batch_size=batch_size, num_workers=4, pin_memory=True
+        MuseTalkDataset(audio_window=audio_window), batch_size=batch_size, num_workers=4, pin_memory=False
     )
     model = MuseTalkModel(UNET_PATH).to(device)
     optimizer = optim.AdamW(params=model.parameters(), lr=lr)
@@ -42,6 +44,9 @@ def training_loop(epochs, lr, batch_size, mixed_precision='no', max_checkpoints=
     model, optimizer, lr_scheduler, train_loader = accelerator.prepare(
         model, optimizer, lr_scheduler, train_loader
     )
+
+    accumulation_steps = 4
+    optimizer.zero_grad()
 
     # 初始化用于存储检查点信息的变量
     checkpoint_list = []
@@ -74,11 +79,15 @@ def training_loop(epochs, lr, batch_size, mixed_precision='no', max_checkpoints=
             # Forward
             image_pred = model((input_latents, audio_feature))
             loss = F.mse_loss(image_pred.float(), latents.float(), reduction="mean")
+            loss = loss / accumulation_steps
+
             # Backward
             accelerator.backward(loss)
-            optimizer.step()
-            lr_scheduler.step()
-            optimizer.zero_grad()
+
+            if (step + 1) % accumulation_steps == 0:
+                optimizer.step()
+                lr_scheduler.step()
+                optimizer.zero_grad()
 
             # 保存检查点
             if (step + 1) % 1000 == 0:
