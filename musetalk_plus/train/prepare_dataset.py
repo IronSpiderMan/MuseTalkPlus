@@ -83,8 +83,10 @@ fa = FaceAnalyst(str(DWPOSE_CONFIG_PATH), str(DWPOST_PATH))
 #     shutil.rmtree(TMP_DATASET_DIR)
 
 
-def process_video(video_path):
+def process_video(video_path, resume=True):
     video_name = video_path.stem
+    if resume and (VIDEO_FRAME_DIR / video_name).exists():
+        return
     recreate_multiple_dirs([
         VIDEO_FRAME_DIR / video_name, AUDIO_FEATURE_DIR / video_name,
         TMP_FRAME_DIR, TMP_AUDIO_DIR
@@ -113,10 +115,10 @@ def process_video(video_path):
     shutil.rmtree(TMP_DATASET_DIR)
 
 
-def process_videos(video_dir="./datasets/videos", fixed_face=True):
+def process_videos(video_dir="./datasets/videos", resume=True):
     video_list = list(Path(video_dir).glob("*.mp4"))
     for video_path in tqdm(video_list, total=len(video_list), desc='Processing videos'):
-        process_video(video_path)
+        process_video(video_path, resume)
 
 
 def parse_args():
@@ -131,12 +133,17 @@ def parse_args():
         type=bool,
         default=True
     )
+    parser.add_argument(
+        "--resume",
+        type=bool,
+        default=True
+    )
     return parser.parse_args()
 
 
 def main():
     args = parse_args()
-    process_videos(video_dir=args.videos_dir, fixed_face=args.fixed_face)
+    process_videos(video_dir=args.videos_dir, resume=args.resume)
 
 
 if __name__ == '__main__':
