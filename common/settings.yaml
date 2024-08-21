@@ -1,0 +1,20 @@
+dataset:
+  videos_dir: videos
+  audios_dir: audios
+  images_dir: images
+  latents_dir: latents
+  audio_window: 5
+
+train:
+  output: outputs/checkpoints
+
+avatar:
+  avatar_dir: results
+
+models:
+  whisper_path: models/whisper/tiny.pt
+  whisper_fine_tuning_path: models/whisper-tiny-zh
+  unet_path: models/musetalk
+  vae_path: models/sd-vae-ft-mse
+  dwpose_config_path: models/dwpose/rtmpose-l_8xb32-270e_coco-ubody-wholebody-384x288.py
+  dwpose_model_path: models/dwpose/dw-ll_ucoco_384.pth

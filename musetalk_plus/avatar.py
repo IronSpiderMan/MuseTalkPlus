@@ -10,14 +10,13 @@ from tqdm import tqdm
 from diffusers import AutoencoderKL
 
 sys.path.append('.')
+from common.setting import settings
+from common.utils import video2images, read_images
 from musetalk_plus.utils import datagen, images2video
 from musetalk_plus.models import MuseTalkModel
 from musetalk_plus.processors import ImageProcessor
-from musetalk_plus.faces.face_recognize import FaceRecognizer
 from musetalk_plus.faces.face_analysis import FaceAnalyst
 from musetalk_plus.whisper.feature_extractor import AudioFrameExtractor
-from common.utils import video2images, read_images
-from common.setting import AVATAR_DIR, UNET_PATH, VAE_PATH, WHISPER_FT_PATH, DWPOST_PATH, DWPOSE_CONFIG_PATH
 
 
 @torch.no_grad()
@@ -37,15 +36,16 @@ class Avatar:
         self.device = device
         self.dtype = dtype
         self.fixed_face = fixed_face
-        self.vae = AutoencoderKL.from_pretrained(VAE_PATH, use_safetensors=False).to(device, dtype=dtype)
-        self.afe = AudioFrameExtractor(WHISPER_FT_PATH, device=device, dtype=dtype)
+        self.vae = AutoencoderKL.from_pretrained(
+            settings.models.vae_path, use_safetensors=False
+        ).to(device, dtype=dtype)
+        self.afe = AudioFrameExtractor(settings.models.whisper_fine_tuning_path, device=device, dtype=dtype)
         self.image_processor = ImageProcessor()
-        self.unet = MuseTalkModel(UNET_PATH).to(device, dtype=dtype)
-        # self.face_recognizer = FaceRecognizer()
+        self.unet = MuseTalkModel(settings.models.unet_path).to(device, dtype=dtype)
         self.face_analyst = None
 
         # 保存avatar相关文件的目录
-        self.avatar_path = AVATAR_DIR / avatar_id
+        self.avatar_path = Path(settings.avatar.avatar_dir) / avatar_id
         self.full_images_path = self.avatar_path / 'full_images'
         self.full_masks_path = self.avatar_path / 'full_masks'
         self.latents_path = self.avatar_path / 'latents.npy'
@@ -112,7 +112,9 @@ class Avatar:
 
     def prepare_avatar(self):
         print("preparing avatar ...")
-        self.face_analyst = FaceAnalyst(DWPOSE_CONFIG_PATH, DWPOST_PATH)
+        self.face_analyst = FaceAnalyst(
+            settings.models.dwpose_config_path, settings.models.dwpose_model_path
+        )
         self.init_directories()
         video2images(self.video_path, self.full_images_path)
         input_image_list = sorted(
