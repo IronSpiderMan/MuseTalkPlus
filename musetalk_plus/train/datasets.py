@@ -36,13 +36,13 @@ class MuseTalkDataset(Dataset):
         return sorted(files, key=lambda x: int(os.path.basename(x).split(".")[0]))
 
     def load_filenames(self):
-        for video_name in os.listdir(settings.dataset.videos_dir):
+        for video_name in os.listdir(settings.dataset.images_dir):
             self.all_data[video_name] = {
                 "image_files": [],
                 "audio_files": []
             }
             # 各个视频对应的图片路径
-            images_dir = os.path.join(settings.dataset.videos_dir, video_name)
+            images_dir = os.path.join(settings.dataset.images_dir, video_name)
             for filename in self.sort_files(os.listdir(images_dir)):
                 self.all_data[video_name]["image_files"].append(
                     os.path.join(images_dir, filename)
