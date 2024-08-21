@@ -6,11 +6,10 @@ import cv2
 import torch
 import numpy as np
 from torch.utils.data import DataLoader, Dataset
-from torchvision.transforms import transforms
 
 sys.path.append('.')
 
-from common.setting import AUDIO_FEATURE_DIR, VIDEO_FRAME_DIR
+from common.setting import settings
 from musetalk_plus.processors import ImageProcessor
 
 RESIZED_IMG = 256
@@ -21,9 +20,11 @@ class MuseTalkDataset(Dataset):
     def __init__(
             self,
             audio_window=5,
+            related_window=5
     ):
         self.all_data = {}
         self.audio_window = audio_window
+        self.related_window = related_window
 
         self.whisper_feature_W = 2
         self.whisper_feature_H = 384
@@ -35,19 +36,19 @@ class MuseTalkDataset(Dataset):
         return sorted(files, key=lambda x: int(os.path.basename(x).split(".")[0]))
 
     def load_filenames(self):
-        for video_name in os.listdir(VIDEO_FRAME_DIR):
+        for video_name in os.listdir(settings.dataset.videos_dir):
             self.all_data[video_name] = {
                 "image_files": [],
                 "audio_files": []
             }
             # 各个视频对应的图片路径
-            images_dir = os.path.join(VIDEO_FRAME_DIR, video_name)
+            images_dir = os.path.join(settings.dataset.videos_dir, video_name)
             for filename in self.sort_files(os.listdir(images_dir)):
                 self.all_data[video_name]["image_files"].append(
                     os.path.join(images_dir, filename)
                 )
             # 各个视频对应的音频路径
-            audios_dir = os.path.join(AUDIO_FEATURE_DIR, video_name)
+            audios_dir = os.path.join(settings.dataset.audios_dir, video_name)
             for filename in self.sort_files(os.listdir(audios_dir)):
                 self.all_data[video_name]["audio_files"].append(
                     os.path.join(audios_dir, filename)
@@ -77,7 +78,11 @@ class MuseTalkDataset(Dataset):
         return torch.FloatTensor(results.reshape(-1, self.whisper_feature_H))
 
     def load_frames(self, video_name, frame_idx: int):
-        frame_list = [frame_idx, 0]
+        related_frame_idx = random.randint(
+            max(0, frame_idx - self.related_window),
+            min(frame_idx + self.related_window, len(self.all_data[video_name]['image_files']) - 2)
+        )
+        frame_list = [frame_idx, related_frame_idx]
         images = []
         for frame_idx in frame_list:
             images.append(self.load_frame(video_name, frame_idx))

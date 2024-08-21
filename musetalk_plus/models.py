@@ -10,10 +10,11 @@ class MuseTalkModel(nn.Module):
     def __init__(self, model_path):
         super().__init__()
         config_path = Path(model_path) / 'config.json'
+        ckpt_path = Path(model_path) / 'diffusion_pytorch_model.bin'
         with open(config_path, 'r') as f:
             config = json.load(f)
         self.unet = UNet2DConditionModel(**config)
-        weights = torch.load(model_path / 'diffusion_pytorch_model.bin')
+        weights = torch.load(ckpt_path)
         self.unet.load_state_dict(weights)
 
         # self.unet = UNet2DConditionModel.from_pretrained(
