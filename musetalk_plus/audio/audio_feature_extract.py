@@ -5,8 +5,7 @@ import numpy as np
 from tqdm import tqdm
 from torch import nn, Tensor
 import torch.nn.functional as F
-from whisper import log_mel_spectrogram, pad_or_trim
-from whisper.audio import N_FRAMES
+from whisper.audio import N_FRAMES, log_mel_spectrogram, pad_or_trim
 from whisper.model import Conv1d, ResidualAttentionBlock, LayerNorm, sinusoids
 
 from common.utils import timeit
