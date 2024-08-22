@@ -17,7 +17,6 @@ from musetalk_plus.utils import datagen, images2video
 from musetalk_plus.models import MuseTalkModel
 from musetalk_plus.processors import ImageProcessor
 from musetalk_plus.faces.face_analysis import FaceAnalyst
-from musetalk_plus.audio.feature_extractor import AudioFrameExtractor
 from musetalk_plus.audio.audio_feature_extract import AudioFeatureExtractor
 
 
@@ -25,7 +24,7 @@ from musetalk_plus.audio.audio_feature_extract import AudioFeatureExtractor
 class Avatar:
     def __init__(
             self, avatar_id: str, video_path: str, bbox_shift_size: int = 5, device: Any = 'cuda',
-            dtype=torch.float16, fixed_face=True, reliable_feature=True
+            dtype=torch.float16, fixed_face=True
     ):
         """
         avatar_id: avatar的唯一标识
@@ -41,10 +40,7 @@ class Avatar:
         self.vae = AutoencoderKL.from_pretrained(
             settings.models.vae_path, use_safetensors=False
         ).to(device, dtype=dtype)
-        if reliable_feature:
-            self.afe = AudioFeatureExtractor(settings.models.whisper_path, device, dtype)
-        else:
-            self.afe = AudioFrameExtractor(settings.models.whisper_fine_tuning_path, device=device, dtype=dtype)
+        self.afe = AudioFeatureExtractor(settings.models.whisper_path, device, dtype)
         self.image_processor = ImageProcessor()
         self.unet = MuseTalkModel(settings.models.unet_path).to(device, dtype=dtype)
         self.face_analyst = None
@@ -66,7 +62,7 @@ class Avatar:
         self.mask_cycle = []
 
         # 其它属性
-        self.audio_window = 5
+        self.audio_window = 2
         self.face_location = None
         self.default_location = [0, 0, 0, 0]
 
@@ -174,12 +170,9 @@ class Avatar:
         self.vid_output_path.mkdir(exist_ok=True)
         self.tmp_path.mkdir(exist_ok=True)
         frame_idx = self.idx = 0
-        # whisper_chunks = self.afe.extract_frames(audio_path, return_tensor=True)
-        whisper_chunks = self.afe.extract_features(audio_path, return_tensor=True)
-        # gen = datagen(whisper_chunks, self.input_latent_cycle, 4, delay_frames=self.idx, audio_window=self.audio_window)
+        whisper_chunks = self.afe.extract_features(audio_path, self.audio_window)
         gen = datagen(
-            whisper_chunks, self.input_latent_cycle, frame_feature=False,
-            batch_size=batch_size, delay_frames=self.idx, audio_window=self.audio_window
+            whisper_chunks, self.input_latent_cycle, batch_size=batch_size, delay_frames=self.idx,
         )
         for i, (whisper_batch, latent_batch) in enumerate(
                 tqdm(gen, total=whisper_chunks.shape[0] // batch_size, desc='Inference...')
@@ -187,9 +180,6 @@ class Avatar:
             whisper_batch = whisper_batch.to(self.device, dtype=self.dtype)
             latent_batch = latent_batch.to(self.device, dtype=self.dtype)
             pred_latents = self.unet((latent_batch, whisper_batch))
-
-            # # 测试帧和latents对应情况
-            # pred_latents = latent_batch[:, 4:, :, :]
             pred_latents = (1 / self.vae.config.scaling_factor) * pred_latents
             pred_images = self.vae.decode(pred_latents).sample
             for idx, pred_image in enumerate(pred_images.cpu()):
@@ -201,9 +191,7 @@ class Avatar:
                 pil_face = Image.fromarray(resized_image[:, :, ::-1])
                 pil_mask = Image.fromarray(self.mask_cycle[frame_idx]).convert('L').crop((x1, y1, x2, y2))
                 pil_frame.paste(pil_face, box=[x1, y1, x2, y2], mask=pil_mask)
-                # frame[y1:y2, x1:x2, :] = resized_image
                 pil_frame.save(str(self.tmp_path / f'{frame_idx:08d}.jpg'))
-                # cv2.imwrite(str(self.tmp_path / f'{frame_idx:08d}.jpg'), frame)
                 frame_idx += 1
                 self.idx += 1
         images2video(self.tmp_path, self.vid_output_path / (Path(audio_path).stem + '.mp4'))
@@ -215,7 +203,7 @@ class Avatar:
 
 def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    avatar = Avatar('111', r'F:\Workplace\MuseTalkPlus\data\video\zack.mp4', device=device, reliable_feature=True)
+    avatar = Avatar('111', r'F:\Workplace\MuseTalkPlus\data\video\zack.mp4', device=device)
     # avatar.inference('./data/audio/out.mp3')
     # avatar.inference(r'F:\Workplace\MuseTalkPlus\data\audio\zack.mp3')
     avatar.inference(r'F:\Workplace\MuseTalkPlus\data\audio\00000002.mp3')
