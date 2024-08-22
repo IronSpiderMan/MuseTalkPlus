@@ -36,8 +36,8 @@ def process_video(video_path):
     make_multiple_dirs([TMP_FRAME_DIR, TMP_AUDIO_DIR])
     # 视频部分的预处理
     if not (VIDEO_FRAME_DIR / video_name).exists():
-        VIDEO_FRAME_DIR.mkdir()
-        (VIDEO_FRAME_DIR / video_name).mkdir()
+        VIDEO_FRAME_DIR.mkdir(exist_ok=True)
+        (VIDEO_FRAME_DIR / video_name).mkdir(exist_ok=True)
         video2images(video_path, TMP_FRAME_DIR)
         frame_list = read_images([str(img) for img in TMP_FRAME_DIR.glob('*')])
     else:
@@ -56,8 +56,8 @@ def process_video(video_path):
         cv2.imwrite(str(dst), resized_crop_frame)
     # 音频部分的预处理
     if not (AUDIO_FEATURE_DIR / video_name).exists():
-        AUDIO_FEATURE_DIR.mkdir()
-        (AUDIO_FEATURE_DIR / video_name).mkdir()
+        AUDIO_FEATURE_DIR.mkdir(exist_ok=True)
+        (AUDIO_FEATURE_DIR / video_name).mkdir(exist_ok=True)
         audio_path = video2audio(video_path, TMP_AUDIO_DIR)
         feature_chunks = afe.extract_frames(audio_path)
     else:
