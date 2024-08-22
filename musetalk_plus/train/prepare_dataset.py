@@ -12,8 +12,8 @@ from tqdm import tqdm
 sys.path.append('.')
 
 from musetalk_plus.faces.face_analysis import FaceAnalyst
-from musetalk_plus.whisper.feature_extractor import AudioFrameExtractor
-from musetalk_plus.whisper.audio_feature_extract import AudioFeatureExtractor
+from musetalk_plus.audio.feature_extractor import AudioFrameExtractor
+from musetalk_plus.audio.audio_feature_extract import AudioFeatureExtractor
 
 from common.setting import settings
 from common.utils import recreate_multiple_dirs, read_images, video2images, video2audio

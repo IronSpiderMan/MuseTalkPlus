@@ -17,8 +17,8 @@ from musetalk_plus.utils import datagen, images2video
 from musetalk_plus.models import MuseTalkModel
 from musetalk_plus.processors import ImageProcessor
 from musetalk_plus.faces.face_analysis import FaceAnalyst
-from musetalk_plus.whisper.feature_extractor import AudioFrameExtractor
-from musetalk_plus.whisper.audio_feature_extract import AudioFeatureExtractor
+from musetalk_plus.audio.feature_extractor import AudioFrameExtractor
+from musetalk_plus.audio.audio_feature_extract import AudioFeatureExtractor
 
 
 @torch.no_grad()
