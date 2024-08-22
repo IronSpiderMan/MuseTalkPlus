@@ -74,7 +74,7 @@ def read_images(img_list, grayscale=False):
     with ThreadPoolExecutor() as executor:
         # Use partial to fix the flags parameter for cv2.imread
         if grayscale:
-            imread = partial(cv2.imread, cv2.IMREAD_GRAYSCALE)
+            imread = partial(cv2.imread, flags=cv2.IMREAD_GRAYSCALE)
         else:
             imread = cv2.imread
         for frame in tqdm(executor.map(imread, img_list), total=len(img_list), desc='Reading images'):
