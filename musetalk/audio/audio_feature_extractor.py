@@ -1,5 +1,9 @@
+import sys
+
 import torch
 import numpy as np
+
+sys.path.append('.')
 
 from common.utils import timeit
 from common.setting import WHISPER_PATH
@@ -34,7 +38,9 @@ class AudioFeatureExtractor:
 
     def extract_frames(self, audio_path, return_tensor=True):
         if return_tensor:
-            return torch.tensor(self.extract_and_chunk_feature(audio_path, 25))
+            return torch.tensor(
+                np.array(self.extract_and_chunk_feature(audio_path, 25))
+            )
         else:
             return self.extract_and_chunk_feature(audio_path, 25)
 
