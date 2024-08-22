@@ -53,9 +53,9 @@ def video2audio(vid_path, save_path):
         print(f"An error occurred: {e}")
 
 
-def make_multiple_dirs(path_list):
+def make_multiple_dirs(path_list, exist_ok=True):
     for path in path_list:
-        os.makedirs(path) if not os.path.exists(path) else None
+        os.makedirs(path, exist_ok=exist_ok) if not os.path.exists(path) else None
 
 
 def remove_multiple_dirs(path_list):
