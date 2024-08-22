@@ -174,7 +174,8 @@ class Avatar:
         self.vid_output_path.mkdir(exist_ok=True)
         self.tmp_path.mkdir(exist_ok=True)
         frame_idx = self.idx = 0
-        whisper_chunks = self.afe.extract_frames(audio_path, return_tensor=True)
+        # whisper_chunks = self.afe.extract_frames(audio_path, return_tensor=True)
+        whisper_chunks = self.afe.extract_features(audio_path, return_tensor=True)
         # gen = datagen(whisper_chunks, self.input_latent_cycle, 4, delay_frames=self.idx, audio_window=self.audio_window)
         gen = datagen(
             whisper_chunks, self.input_latent_cycle, frame_feature=False,

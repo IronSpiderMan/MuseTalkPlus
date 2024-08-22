@@ -19,15 +19,15 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 class MuseTalkDataset(Dataset):
     def __init__(
             self,
-            audio_window=5,
+            audio_window=0,
             related_window=5
     ):
         self.all_data = {}
         self.audio_window = audio_window
         self.related_window = related_window
 
-        self.whisper_feature_W = 2
-        self.whisper_feature_H = 384
+        self.hidden_dim = 50
+        self.embedding_dim = 384
         self.image_processor = ImageProcessor()
         self.load_filenames()
 
@@ -72,10 +72,10 @@ class MuseTalkDataset(Dataset):
         else:
             file_list = [self.all_data[video_name]['audio_files'][idx] for idx in
                          range(frame_idx - self.audio_window, frame_idx + self.audio_window + 1)]
-        results = np.zeros((len(file_list), self.whisper_feature_W, self.whisper_feature_H))
+        results = np.zeros((len(file_list), self.hidden_dim, self.embedding_dim))
         for idx, file in enumerate(file_list):
             results[idx, ::] = np.load(file)
-        return torch.FloatTensor(results.reshape(-1, self.whisper_feature_H))
+        return torch.FloatTensor(results.reshape(-1, self.embedding_dim))
 
     def load_frames(self, video_name, frame_idx: int):
         related_frame_idx = random.randint(
@@ -121,7 +121,7 @@ if __name__ == "__main__":
     for i in dataloader:
         # print(i)
         ti, ri, mi, af = i
-        # print(ti.shape)
-        # print(mi.shape)
-        # print(af.shape)
+        print(ti.shape)
+        print(mi.shape)
+        print(af.shape)
         break

@@ -18,7 +18,7 @@ class AudioFrameExtractor:
         self.audio_fps = self.sample_rate // self.video_fps
 
     @torch.no_grad()
-    def extract_frames(self, audio_path, return_tensor=False):
+    def extract_features(self, audio_path, return_tensor=False):
         audio, sr = librosa.load(audio_path, sr=self.sample_rate)
         # 计算视频总帧数
         frames = min(math.floor(audio.shape[-1] / self.audio_fps), self.video_fps * 30)
@@ -46,4 +46,4 @@ if __name__ == '__main__':
     # 加载音频文件
     audio_file = r"F:\Workplace\MuseTalkPlus\data\audio\out_.mp3"
     afe = AudioFrameExtractor(model_name_or_path=r"F:\models\whisper-tiny-zh")
-    print(afe.extract_frames(audio_file).shape)
+    print(afe.extract_features(audio_file).shape)

@@ -60,7 +60,7 @@ def process_video(video_path):
         feature_chunks = []
     for fidx, chunk in tqdm(
             enumerate(feature_chunks),
-            total=len(frame_list),
+            total=len(feature_chunks),
             desc=f"Processing video {video_name} 's audio"
     ):
         dst = AUDIO_FEATURE_DIR / video_name / f"{fidx:08d}.npy"
