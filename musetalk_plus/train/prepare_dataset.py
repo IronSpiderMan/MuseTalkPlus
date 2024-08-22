@@ -29,10 +29,6 @@ fa = FaceAnalyst(settings.models.dwpose_config_path, settings.models.dwpose_mode
 
 def process_video(video_path):
     video_name = video_path.stem
-    # recreate_multiple_dirs([
-    #     VIDEO_FRAME_DIR / video_name, AUDIO_FEATURE_DIR / video_name,
-    #     TMP_FRAME_DIR, TMP_AUDIO_DIR
-    # ])
     make_multiple_dirs([TMP_FRAME_DIR, TMP_AUDIO_DIR])
     # 视频部分的预处理
     if not (VIDEO_FRAME_DIR / video_name).exists():
@@ -59,7 +55,7 @@ def process_video(video_path):
         AUDIO_FEATURE_DIR.mkdir(exist_ok=True)
         (AUDIO_FEATURE_DIR / video_name).mkdir(exist_ok=True)
         audio_path = video2audio(video_path, TMP_AUDIO_DIR)
-        feature_chunks = afe.extract_frames(audio_path)
+        feature_chunks = afe.extract_features(audio_path)
     else:
         feature_chunks = []
     for fidx, chunk in tqdm(

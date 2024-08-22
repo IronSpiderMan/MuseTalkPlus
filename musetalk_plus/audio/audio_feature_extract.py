@@ -5,7 +5,7 @@ import numpy as np
 from tqdm import tqdm
 from torch import nn, Tensor
 import torch.nn.functional as F
-from whisper.audio import N_FRAMES, log_mel_spectrogram, pad_or_trim
+from whisper.audio import N_FRAMES, log_mel_spectrogram, pad_or_trim, HOP_LENGTH
 from whisper.model import Conv1d, ResidualAttentionBlock, LayerNorm, sinusoids
 
 from common.utils import timeit
@@ -76,12 +76,56 @@ class AudioFeatureExtractor:
         self.encoder = self.encoder.to(device)
 
     @torch.no_grad()
+    def extract_features(
+            self,
+            audio: Union[str, np.ndarray, torch.Tensor],
+            audio_window=2
+    ):
+        mel = log_mel_spectrogram(audio)
+        # 计算当sample_rate为16000时，对应的25fps的视频的总帧数
+        frame_count = mel.shape[1] // 4
+        features = []
+        for start_idx in range(0, mel.shape[-1], N_FRAMES):
+            mel_chunk = mel[:, start_idx: start_idx + 3000]
+            segment = pad_or_trim(mel_chunk, N_FRAMES).to(self.device, dtype=self.dtype)
+            single = segment.ndim == 2
+            if single:
+                segment = segment.unsqueeze(0)
+            # embeddings的形状为n*5*1500*384,(n batch_size, 5 layers, 1500~30second, 384 embedding dim)
+            # 单帧图像对应的音频特征为1 * 5 * 2 * 384
+            _, embeddings = self.encoder(segment)
+            features.append(embeddings.permute(0, 2, 1, 3))
+        features = torch.cat(features, dim=1)
+
+        hidden_dim = ((audio_window * 2) + 1) * 2 * 5
+        audio_frame_features = torch.zeros((
+            frame_count,
+            hidden_dim,
+            384
+        ))
+        for audio_idx in range(frame_count):
+            start_idx = max(0, (audio_idx - audio_window) * 2)
+            end_idx = min(frame_count * 2, (audio_idx + audio_window + 1) * 2)
+            audio_frame_feature = features[0, start_idx:end_idx, :, :].reshape(1, -1, 384)
+
+            # 对开始帧和结束帧进行填充
+            if audio_frame_feature.shape[1] != hidden_dim:
+                padding_feature = torch.zeros((1, hidden_dim - audio_frame_feature.shape[1], 384))
+                if start_idx == 0:
+                    audio_frame_feature = torch.cat([padding_feature, audio_frame_feature], dim=1)
+                if end_idx == frame_count * 2:
+                    audio_frame_feature = torch.cat([audio_frame_feature, padding_feature], dim=1)
+            audio_frame_features[audio_idx] = audio_frame_feature
+        return audio_frame_features
+
+    @torch.no_grad()
     def transcribe(
             self,
             audio: Union[str, np.ndarray, torch.Tensor],
             verbose: bool
     ):
         mel = log_mel_spectrogram(audio)
+        print('mel.shape', mel.shape)
 
         all_segments = []
 
@@ -171,6 +215,10 @@ class AudioFeatureExtractor:
 if __name__ == '__main__':
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     afe = AudioFeatureExtractor('../../models/whisper/tiny.pt', device=device, dtype=torch.float32)
-    chunks = afe.extract_frames('../../data/audio/111.mp3')
-    for chunk in chunks:
-        print(chunk.shape)
+    fs = afe.extract_features('../../data/audio/zack.wav')
+    print(fs.shape)
+    # audio = whisper.audio.load_audio('../../data/audio/222.wav')
+    # print(audio.shape)
+    # chunks = afe.extract_frames(audio)
+    # for chunk in chunks:
+    #     print(chunk.shape)
