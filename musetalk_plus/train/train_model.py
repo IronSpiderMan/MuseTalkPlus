@@ -24,8 +24,7 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 vae = AutoencoderKL.from_pretrained(VAE_PATH, subfolder="vae").to(device)
 vae.requires_grad_(False)
 
-
-# pe = PositionalEncoding().to(device)
+pe = PositionalEncoding().to(device)
 
 
 def training_loop(epochs, lr, batch_size, mixed_precision='no', max_checkpoints=10, audio_window=5):
@@ -66,6 +65,8 @@ def training_loop(epochs, lr, batch_size, mixed_precision='no', max_checkpoints=
                 masked_image.to(device),
                 audio_feature.to(device)
             )
+            with torch.no_grad():
+                audio_feature = pe(audio_feature)
             # 获取目标的latents
             latents = vae.encode(target_image.to(vae.dtype)).latent_dist.sample()
             latents = latents * vae.config.scaling_factor
