@@ -25,6 +25,7 @@ vae = AutoencoderKL.from_pretrained(VAE_PATH, subfolder="vae").to(device)
 vae.requires_grad_(False)
 
 pe = PositionalEncoding().to(device)
+pe.requires_grad_(False)
 
 
 def training_loop(
