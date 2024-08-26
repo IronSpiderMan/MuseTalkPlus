@@ -74,16 +74,22 @@ def training_loop(
             latents = vae.encode(target_image.to(vae.dtype)).latent_dist.sample()
             latents = latents * vae.config.scaling_factor
             # 获取输入的latents
-            avatar_image = vae.encode(avatar_image.to(vae.dtype)).latent_dist.sample()
-            avatar_image = avatar_image * vae.config.scaling_factor
+            avatar_latents = vae.encode(avatar_image.to(vae.dtype)).latent_dist.sample()
+            avatar_latents = avatar_latents * vae.config.scaling_factor
             masked_latents = vae.encode(masked_image.to(vae.dtype)).latent_dist.sample()
             masked_latents = masked_latents * vae.config.scaling_factor
-            input_latents = torch.cat([masked_latents, avatar_image], dim=1)
+            input_latents = torch.cat([masked_latents, avatar_latents], dim=1)
             audio_feature = pe(audio_feature)
             # Forward
-            image_pred = model((input_latents, audio_feature))
-            loss = F.mse_loss(image_pred.float(), latents.float(), reduction="mean")
-            loss = loss / accumulation_steps
+            pred_latents = model((input_latents, audio_feature))
+            # 对预测图像解码
+            pred_latents = (1 / vae.config.scaling_factor) * pred_latents
+            pred_latents = vae.decode(pred_latents).sample
+            pred_images = vae.decode(pred_latents).sample
+
+            l1 = F.mse_loss(pred_latents.float(), latents.float(), reduction="mean")
+            l2 = F.mse_loss(pred_images.float(), target_image.float(), reduction="mean")
+            loss = (l1 + l2) / accumulation_steps
 
             # Backward
             accelerator.backward(loss)
