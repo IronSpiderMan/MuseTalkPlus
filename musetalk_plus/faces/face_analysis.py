@@ -27,6 +27,8 @@ class FaceAnalyst:
         # 生成mask
         cv2.fillPoly(face_mask, [curve_points], (255, 255, 255))
         face_mask = cv2.GaussianBlur(face_mask, (21, 21), 0)
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+        face_mask = cv2.erode(face_mask, kernel, iterations=10)
         return face_mask
 
     @staticmethod
