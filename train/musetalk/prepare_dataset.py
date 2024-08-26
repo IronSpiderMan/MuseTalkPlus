@@ -15,7 +15,7 @@ from musetalk.models.vae import VAE
 from musetalk.utils.utils import video2images, video2audio
 from musetalk.utils.preprocessing import get_landmark_and_bbox
 # from musetalk.whisper.audio_feature_extractor import AudioFeatureExtractor
-from musetalk.whisper.feature_extractor import AudioFrameExtractor
+from musetalk.audio.feature_extractor import AudioFrameExtractor
 
 from common.utils import recreate_multiple_dirs
 from common.setting import (

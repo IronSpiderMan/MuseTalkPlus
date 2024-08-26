@@ -10,6 +10,8 @@ from tqdm import tqdm
 from PIL import Image
 from diffusers import AutoencoderKL
 
+from musetalk.models.unet import PositionalEncoding
+
 sys.path.append('.')
 from common.setting import settings
 from common.utils import video2images, read_images
@@ -43,6 +45,7 @@ class Avatar:
         self.afe = AudioFeatureExtractor(settings.models.whisper_path, device, dtype)
         self.image_processor = ImageProcessor()
         self.unet = MuseTalkModel(settings.models.unet_path).to(device, dtype=dtype)
+        self.pe = PositionalEncoding().to(device, dtype=dtype)
         self.face_analyst = None
 
         # 保存avatar相关文件的目录
@@ -178,8 +181,10 @@ class Avatar:
                 tqdm(gen, total=whisper_chunks.shape[0] // batch_size, desc='Inference...')
         ):
             whisper_batch = whisper_batch.to(self.device, dtype=self.dtype)
+            whisper_batch = self.pe(whisper_batch)
             latent_batch = latent_batch.to(self.device, dtype=self.dtype)
             pred_latents = self.unet((latent_batch, whisper_batch))
+            # pred_latents = latent_batch[:, 4:, :, :]
             pred_latents = (1 / self.vae.config.scaling_factor) * pred_latents
             pred_images = self.vae.decode(pred_latents).sample
             for idx, pred_image in enumerate(pred_images.cpu()):
@@ -187,7 +192,7 @@ class Avatar:
                 frame = self.frame_cycle[frame_idx].copy()
                 resized_image = cv2.resize(self.image_processor.de_process(pred_image), (x2 - x1, y2 - y1))
                 # 融合预测图像与原图像
-                pil_frame = Image.fromarray(frame[:, :, ::-1])
+                pil_frame = Image.fromarray(frame)
                 pil_face = Image.fromarray(resized_image[:, :, ::-1])
                 pil_mask = Image.fromarray(self.mask_cycle[frame_idx]).convert('L').crop((x1, y1, x2, y2))
                 pil_frame.paste(pil_face, box=[x1, y1, x2, y2], mask=pil_mask)

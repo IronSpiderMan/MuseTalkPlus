@@ -92,6 +92,7 @@ class MuseTalkDataset(Dataset):
 
     def load_frame(self, video_name, frame_idx, half_masked=False):
         image = cv2.imread(self.all_data[video_name]['image_files'][frame_idx])
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         return self.image_processor(image, half_mask=half_masked)
 
     @staticmethod

@@ -27,9 +27,12 @@ vae.requires_grad_(False)
 pe = PositionalEncoding().to(device)
 
 
-def training_loop(epochs, lr, batch_size, mixed_precision='no', max_checkpoints=10, audio_window=5):
+def training_loop(
+        epochs, lr, batch_size, mixed_precision='no', max_checkpoints=10, audio_window=0, related_window=5,
+):
     train_loader = DataLoader(
-        MuseTalkDataset(audio_window=audio_window), batch_size=batch_size, num_workers=4, pin_memory=False
+        MuseTalkDataset(audio_window=audio_window, related_window=related_window), batch_size=batch_size, num_workers=4,
+        pin_memory=False
     )
     model = MuseTalkModel(UNET_PATH).to(device)
     optimizer = optim.AdamW(params=model.parameters(), lr=lr)
@@ -76,7 +79,7 @@ def training_loop(epochs, lr, batch_size, mixed_precision='no', max_checkpoints=
             masked_latents = vae.encode(masked_image.to(vae.dtype)).latent_dist.sample()
             masked_latents = masked_latents * vae.config.scaling_factor
             input_latents = torch.cat([masked_latents, avatar_image], dim=1)
-            # audio_feature = pe(audio_feature)
+            audio_feature = pe(audio_feature)
             # Forward
             image_pred = model((input_latents, audio_feature))
             loss = F.mse_loss(image_pred.float(), latents.float(), reduction="mean")
@@ -133,6 +136,11 @@ def parse_args():
     parser.add_argument(
         "--audio_window",
         type=int,
+        default=0
+    )
+    parser.add_argument(
+        "--related_window",
+        type=int,
         default=5
     )
     return parser.parse_args()
@@ -141,7 +149,8 @@ def parse_args():
 def main():
     args = parse_args()
     training_loop(
-        args.epochs, lr=1e-5, batch_size=args.batch_size, mixed_precision="no", audio_window=args.audio_window
+        args.epochs, lr=1e-5, batch_size=args.batch_size, mixed_precision="no", audio_window=args.audio_window,
+        related_window=args.related_window
     )
 
 
