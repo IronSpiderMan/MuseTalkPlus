@@ -82,12 +82,10 @@ def training_loop(
             audio_feature = pe(audio_feature)
             # Forward
             pred_latents = model((input_latents, audio_feature))
-            # 对预测图像解码
             pred_latents = (1 / vae.config.scaling_factor) * pred_latents
-            pred_latents = vae.decode(pred_latents).sample
-            pred_images = vae.decode(pred_latents).sample
-
             l1 = F.mse_loss(pred_latents.float(), latents.float(), reduction="mean")
+            # 对预测图像解码
+            pred_images = vae.decode(pred_latents).sample
             l2 = F.mse_loss(pred_images.float(), target_image.float(), reduction="mean")
             loss = (l1 + l2) / accumulation_steps
 
