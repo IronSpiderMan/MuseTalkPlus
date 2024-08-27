@@ -63,40 +63,39 @@ def training_loop(
                 enumerate(train_loader),
                 total=len(train_loader)
         ):
-            target_image, avatar_image, masked_image, audio_feature = (
-                target_image.to(device),
-                avatar_image.to(device),
-                masked_image.to(device),
-                audio_feature.to(device)
-            )
+            # target_image, avatar_image, masked_image, audio_feature = (
+            #     target_image.to(device),
+            #     avatar_image.to(device),
+            #     masked_image.to(device),
+            #     audio_feature.to(device)
+            # )
             with torch.no_grad():
                 audio_feature = pe(audio_feature)
-            # 获取目标的latents
-            latents = vae.encode(target_image.to(vae.dtype)).latent_dist.sample()
-            latents = latents * vae.config.scaling_factor
-            # 获取输入的latents
-            avatar_latents = vae.encode(avatar_image.to(vae.dtype)).latent_dist.sample()
-            avatar_latents = avatar_latents * vae.config.scaling_factor
-            masked_latents = vae.encode(masked_image.to(vae.dtype)).latent_dist.sample()
-            masked_latents = masked_latents * vae.config.scaling_factor
-            input_latents = torch.cat([masked_latents, avatar_latents], dim=1)
-            audio_feature = pe(audio_feature)
+                # 获取目标的latents
+                latents = vae.encode(target_image).latent_dist.sample()
+                latents = latents * vae.config.scaling_factor
+                # 获取输入的latents
+                avatar_latents = vae.encode(avatar_image).latent_dist.sample()
+                avatar_latents = avatar_latents * vae.config.scaling_factor
+                masked_latents = vae.encode(masked_image).latent_dist.sample()
+                masked_latents = masked_latents * vae.config.scaling_factor
             # Forward
+            input_latents = torch.cat([masked_latents, avatar_latents], dim=1)
             pred_latents = model((input_latents, audio_feature))
             pred_latents = (1 / vae.config.scaling_factor) * pred_latents
             l1 = F.mse_loss(pred_latents.float(), latents.float(), reduction="mean")
             # 对预测图像解码
             pred_images = vae.decode(pred_latents).sample
             l2 = F.mse_loss(pred_images.float(), target_image.float(), reduction="mean")
-            loss = (l1 + l2) / accumulation_steps
+            loss = (l1 * 0.8 + l2) / accumulation_steps
 
             # Backward
             accelerator.backward(loss)
 
             if (step + 1) % accumulation_steps == 0:
                 optimizer.step()
-                lr_scheduler.step()
                 optimizer.zero_grad()
+                lr_scheduler.step()
 
             # 保存检查点
             if (step + 1) % 1000 == 0:
