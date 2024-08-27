@@ -193,7 +193,7 @@ class Avatar:
                 resized_image = cv2.resize(self.image_processor.de_process(pred_image), (x2 - x1, y2 - y1))
                 # 融合预测图像与原图像
                 pil_frame = Image.fromarray(frame)
-                pil_face = Image.fromarray(resized_image[:, :, ::-1])
+                pil_face = Image.fromarray(resized_image)
                 pil_mask = Image.fromarray(self.mask_cycle[frame_idx]).convert('L').crop((x1, y1, x2, y2))
                 pil_frame.paste(pil_face, box=[x1, y1, x2, y2], mask=pil_mask)
                 pil_frame.save(str(self.tmp_path / f'{frame_idx:08d}.jpg'))
