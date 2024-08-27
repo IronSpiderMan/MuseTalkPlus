@@ -76,11 +76,11 @@ def training_loop(
             # Forward
             input_latents = torch.cat([masked_latents, avatar_latents], dim=1)
             pred_latents = model((input_latents, audio_feature))
-            l1 = F.mse_loss(pred_latents.float(), target_latents.float(), reduction="mean")
+            l1 = F.l1_loss(pred_latents.float(), target_latents.float(), reduction="mean")
             # 对预测图像解码
             pred_latents = (1 / vae.config.scaling_factor) * pred_latents
             pred_images = vae.decode(pred_latents).sample
-            l2 = F.mse_loss(pred_images.float(), target_image.float(), reduction="mean")
+            l2 = F.l1_loss(pred_images.float(), target_image.float(), reduction="mean")
             loss = (l1 * 0.8 + l2) / accumulation_steps
 
             # Backward
