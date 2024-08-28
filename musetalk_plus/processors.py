@@ -9,10 +9,11 @@ class ImageProcessor:
         self.image_size = image_size
         self.transform = transforms.Compose([
             transforms.ToTensor(),
-            transforms.Normalize(mean=[0.72385666, 0.58761341, 0.52358781], std=[0.13336754, 0.15247745, 0.16650109])
+            # transforms.Normalize(mean=[0.72385666, 0.58761341, 0.52358781], std=[0.13336754, 0.15247745, 0.16650109])
+            transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
         ])
-        self.mean = torch.tensor([0.72385666, 0.58761341, 0.52358781]).view(3, 1, 1)
-        self.std = torch.tensor([0.13336754, 0.15247745, 0.16650109]).view(3, 1, 1)
+        self.mean = torch.tensor([0.5, 0.5, 0.5]).view(3, 1, 1)
+        self.std = torch.tensor([0.5, 0.5, 0.5]).view(3, 1, 1)
 
     def __call__(self, image, half_mask=False) -> torch.Tensor:
         if isinstance(image, str):

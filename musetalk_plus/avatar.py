@@ -10,13 +10,11 @@ from tqdm import tqdm
 from PIL import Image
 from diffusers import AutoencoderKL
 
-from musetalk.models.unet import PositionalEncoding
-
 sys.path.append('.')
 from common.setting import settings
 from common.utils import video2images, read_images
 from musetalk_plus.utils import datagen, images2video
-from musetalk_plus.models import MuseTalkModel
+from musetalk_plus.models import MuseTalkModel, PositionalEncoding
 from musetalk_plus.processors import ImageProcessor
 from musetalk_plus.faces.face_analysis import FaceAnalyst
 from musetalk_plus.audio.audio_feature_extract import AudioFeatureExtractor
@@ -180,7 +178,7 @@ class Avatar:
                 tqdm(gen, total=whisper_chunks.shape[0] // batch_size, desc='Inference...')
         ):
             whisper_batch = whisper_batch.to(self.device, dtype=self.dtype)
-            # whisper_batch = self.pe(whisper_batch)
+            whisper_batch = self.pe(whisper_batch)
             latent_batch = latent_batch.to(self.device, dtype=self.dtype)
             pred_latents = self.unet((latent_batch, whisper_batch))
             # pred_latents = latent_batch[:, 4:, :, :]
