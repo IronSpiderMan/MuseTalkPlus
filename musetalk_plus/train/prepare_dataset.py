@@ -92,10 +92,7 @@ def parse_args():
 def main():
     args = parse_args()
     global afe
-    if args.reliable:
-        afe = AudioFeatureExtractor(settings.models.whisper_path, device=device, dtype=torch.float32)
-    else:
-        afe = AudioFrameExtractor(settings.models.whisper_fine_tuning_path)
+    afe = AudioFeatureExtractor(settings.models.whisper_path, device=device, dtype=torch.float32)
     process_videos(video_dir=args.videos_dir, face_shift=args.face_shift)
 
 
