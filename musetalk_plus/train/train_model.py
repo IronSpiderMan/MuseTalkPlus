@@ -98,7 +98,7 @@ def training_loop(
 
                 # 保存当前检查点
                 checkpoint_path = TRAIN_OUTPUT_DIR / f"checkpoint-epoch-{epoch + 1}-iters-{step + 1}-loss-{loss:.5f}.pt"
-                accelerator.save(accelerator.get_state_dict(model), checkpoint_path)
+                accelerator.save(accelerator.get_state_dict(model.unet), checkpoint_path)
                 checkpoint_list.append(checkpoint_path)
 
                 # 维护最多10个检查点
@@ -115,7 +115,7 @@ def training_loop(
 
                     # 复制最小损失的检查点
                     min_loss_checkpoint_copy = TRAIN_OUTPUT_DIR / "best_checkpoint.pt"
-                    accelerator.save(accelerator.get_state_dict(model), min_loss_checkpoint_copy)
+                    accelerator.save(accelerator.get_state_dict(model.unet), min_loss_checkpoint_copy)
 
 
 def parse_args():

@@ -9,10 +9,10 @@ class ImageProcessor:
         self.image_size = image_size
         self.transform = transforms.Compose([
             transforms.ToTensor(),
-            transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
+            transforms.Normalize(mean=[0.72385666, 0.58761341, 0.52358781], std=[0.13336754, 0.15247745, 0.16650109])
         ])
-        self.mean = torch.tensor([0.5, 0.5, 0.5]).view(3, 1, 1)
-        self.std = torch.tensor([0.5, 0.5, 0.5]).view(3, 1, 1)
+        self.mean = torch.tensor([0.72385666, 0.58761341, 0.52358781]).view(3, 1, 1)
+        self.std = torch.tensor([0.13336754, 0.15247745, 0.16650109]).view(3, 1, 1)
 
     def __call__(self, image, half_mask=False) -> torch.Tensor:
         if isinstance(image, str):
@@ -30,3 +30,12 @@ class ImageProcessor:
         image = image * self.std + self.mean
         image = image * 255.0
         return image.permute(1, 2, 0).cpu().numpy().astype(np.uint8)
+
+
+if __name__ == '__main__':
+    import matplotlib.pyplot as plt
+
+    ip = ImageProcessor()
+    plt.imshow(ip('00000000.png').permute(1, 2, 0))
+    # plt.imshow(ip.de_process(ip('00000000.png')))
+    plt.show()

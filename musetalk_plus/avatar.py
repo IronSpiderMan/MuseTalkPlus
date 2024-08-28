@@ -180,7 +180,7 @@ class Avatar:
                 tqdm(gen, total=whisper_chunks.shape[0] // batch_size, desc='Inference...')
         ):
             whisper_batch = whisper_batch.to(self.device, dtype=self.dtype)
-            whisper_batch = self.pe(whisper_batch)
+            # whisper_batch = self.pe(whisper_batch)
             latent_batch = latent_batch.to(self.device, dtype=self.dtype)
             pred_latents = self.unet((latent_batch, whisper_batch))
             # pred_latents = latent_batch[:, 4:, :, :]
