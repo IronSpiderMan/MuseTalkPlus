@@ -1,8 +1,6 @@
-import json
-from pathlib import Path
-
 import torch
 from torch import nn
+import numpy as np
 from diffusers import UNet2DConditionModel
 
 
@@ -12,9 +10,7 @@ class MuseTalkModel(nn.Module):
         self.unet = UNet2DConditionModel.from_pretrained(
             model_path, use_safetensors=False,
         )
-        self.ape = nn.Embedding(50, 384)
 
     def forward(self, inputs):
         image_feature, audio_feature = inputs
-        audio_feature = self.ape(audio_feature) + audio_feature
         return self.unet(image_feature, 0, encoder_hidden_states=audio_feature).sample

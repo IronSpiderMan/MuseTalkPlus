@@ -26,7 +26,7 @@ from musetalk_plus.audio.audio_feature_extract import AudioFeatureExtractor
 class Avatar:
     def __init__(
             self, avatar_id: str, video_path: str, bbox_shift_size: int = 5, device: Any = 'cuda',
-            dtype=torch.float16, fixed_face=True
+            dtype=torch.float16
     ):
         """
         avatar_id: avatar的唯一标识
@@ -38,7 +38,6 @@ class Avatar:
         self.bbox_shift_size = bbox_shift_size
         self.device = device
         self.dtype = dtype
-        self.fixed_face = fixed_face
         self.vae = AutoencoderKL.from_pretrained(
             settings.models.vae_path, use_safetensors=False
         ).to(device, dtype=dtype)
@@ -134,7 +133,7 @@ class Avatar:
             pts = self.face_analyst.analysis(frame)
             h, w = frame.shape[:2]
             landmark_mask = self.face_analyst.face_landmark_mask((w, h), pts)
-            bbox = self.face_analyst.face_location(pts)
+            bbox = self.face_analyst.face_location(pts, shift=None)
             mask_list.append(landmark_mask)
             coord_list.append(bbox)
             cv2.imwrite(str(self.full_masks_path / f'{idx:08d}.jpg'), landmark_mask)

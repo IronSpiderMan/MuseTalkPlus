@@ -13,7 +13,7 @@ from accelerate.utils import set_seed
 from diffusers import AutoencoderKL
 
 sys.path.append('.')
-
+from musetalk.models.unet import PositionalEncoding
 from musetalk_plus.train.datasets import MuseTalkDataset
 from musetalk_plus.models import MuseTalkModel
 from common.setting import VAE_PATH, TRAIN_OUTPUT_DIR, UNET_PATH
@@ -22,6 +22,9 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 
 vae = AutoencoderKL.from_pretrained(VAE_PATH, subfolder="vae").to(device)
 vae.requires_grad_(False)
+
+pe = PositionalEncoding()
+pe.requires_grad_(False)
 
 
 def training_loop(
@@ -60,6 +63,7 @@ def training_loop(
                 total=len(train_loader)
         ):
             with torch.no_grad():
+                audio_feature = pe(audio_feature)
                 # 获取目标的latents
                 target_latents = vae.encode(target_image).latent_dist.sample()
                 target_latents = target_latents * vae.config.scaling_factor
