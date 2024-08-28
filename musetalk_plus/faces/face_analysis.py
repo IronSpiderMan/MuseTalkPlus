@@ -38,22 +38,29 @@ class FaceAnalyst:
         return curve
 
     @staticmethod
-    def face_location(key_points, shift=15):
+    def face_location(key_points, shift: int | None = 15):
         landmark_points = key_points[0][23:91]
         face_area = landmark_points[0: 27]
         min_x = np.min(face_area[:, 0])
         min_y = np.min(face_area[:, 1])
         max_x = np.max(face_area[:, 0])
         max_y = np.max(face_area[:, 1])
-        return int(min_x), int(min_y - shift), int(max_x), int(max_y)
+        if shift is None:
+            # 移动到额头，假设额头到眉毛的距离等于眉毛到鼻尖的距离
+            min_y = min_y * 2 - landmark_points[29][1]
+        else:
+            min_y = min_y - shift
+        return int(min_x), int(min_y), int(max_x), int(max_y)
 
 
 if __name__ == '__main__':
     config_file = r'F:\Workplace\MuseTalkPlus\musetalk\utils\dwpose\rtmpose-l_8xb32-270e_coco-ubody-wholebody-384x288.py'
     checkpoint_file = r'F:\Workplace\MuseTalkPlus\models\dwpose\dw-ll_ucoco_384.pth'
     fa = FaceAnalyst(config_file, checkpoint_file)
-    pts = fa.analysis('00000002.png')
+    pts = fa.analysis('00000001.png')
     bbox = fa.face_location(pts)
-    im = Image.open('00000002.png')
-    ImageDraw.Draw(im).rectangle(bbox, width=2)
+    x1, y1, x2, y2 = bbox
+    im = Image.open('00000001.png')
+    draw = ImageDraw.Draw(im)
+    draw.rectangle((x1, (y1 + y2) // 2, x2, y2))
     im.show()
