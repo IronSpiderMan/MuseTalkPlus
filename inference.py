@@ -3,9 +3,7 @@ import argparse
 import torch
 from omegaconf import OmegaConf
 
-from musetalk_plus.avatar import Avatar
-
-AVATAR_DIR = "./results/avatars"
+from musetalk.avatar import Avatar
 
 if __name__ == "__main__":
     '''

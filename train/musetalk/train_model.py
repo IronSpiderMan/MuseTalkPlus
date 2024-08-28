@@ -1,6 +1,7 @@
 import os
 import sys
 import datetime
+from pathlib import Path
 from argparse import ArgumentParser
 
 import torch
@@ -13,17 +14,20 @@ from accelerate.utils import set_seed
 from diffusers import AutoencoderKL
 
 sys.path.append('.')
+from common.setting import settings
 from train.musetalk.datasets import MuseTalkDataset
-from musetalk_plus.models import MuseTalkModel, PositionalEncoding
-from common.setting import VAE_PATH, TRAIN_OUTPUT_DIR, UNET_PATH
+from musetalk.models import MuseTalkModel, PositionalEncoding
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
-vae = AutoencoderKL.from_pretrained(VAE_PATH, subfolder="vae").to(device)
+vae = AutoencoderKL.from_pretrained(settings.models.vae_path, subfolder="vae").to(device)
 vae.requires_grad_(False)
 
 pe = PositionalEncoding()
 pe.requires_grad_(False)
+
+TRAIN_OUTPUT_DIR = Path(settings.train.output)
+TRAIN_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def training_loop(
@@ -33,7 +37,7 @@ def training_loop(
         MuseTalkDataset(audio_window=audio_window, related_window=related_window), batch_size=batch_size, num_workers=4,
         pin_memory=False
     )
-    model = MuseTalkModel(UNET_PATH).to(device)
+    model = MuseTalkModel(settings.models.unet_path).to(device)
     optimizer = optim.AdamW(params=model.parameters(), lr=lr)
     lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(
         optimizer=optimizer,
@@ -122,27 +126,27 @@ def parse_args():
     parser.add_argument(
         "--batch_size",
         type=int,
-        default=8
+        default=settings.train.batch_size
     )
     parser.add_argument(
         "--epochs",
         type=int,
-        default=10
+        default=settings.train.epochs
     )
     parser.add_argument(
         "--audio_window",
         type=int,
-        default=0
+        default=settings.train.audio_window
     )
     parser.add_argument(
         "--related_window",
         type=int,
-        default=5
+        default=settings.train.related_window
     )
     parser.add_argument(
         "--gamma",
         type=float,
-        default=0.5
+        default=settings.train.gamma
     )
     return parser.parse_args()
 

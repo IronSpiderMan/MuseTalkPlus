@@ -1,11 +1,23 @@
+common:
+  fps: 25
+  image_size: 256
+  hidden_size: 50
+  embedding_dim: 384
+
 dataset:
-  videos_dir: videos
-  audios_dir: audios
-  images_dir: images
-  latents_dir: latents
-  audio_window: 5
+  base_dir: datasets
+  videos_dir: datasets/videos
+  audios_dir: datasets/audios
+  images_dir: datasets/images
+  latents_dir: datasets/latents
+  audio_window: 0
 
 train:
+  batch_size: 4
+  epochs: 10
+  audio_window: 0
+  related_window: 5
+  gamma: 0.5
   output: outputs/checkpoints
 
 avatar:

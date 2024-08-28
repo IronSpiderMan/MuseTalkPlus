@@ -13,11 +13,11 @@ from diffusers import AutoencoderKL
 sys.path.append('.')
 from common.setting import settings
 from common.utils import video2images, read_images
-from musetalk_plus.utils import datagen, images2video
-from musetalk_plus.models import MuseTalkModel, PositionalEncoding
-from musetalk_plus.processors import ImageProcessor
-from musetalk_plus.faces.face_analysis import FaceAnalyst
-from musetalk_plus.audio.audio_feature_extract import AudioFeatureExtractor
+from musetalk.utils import datagen, images2video
+from musetalk.models import MuseTalkModel, PositionalEncoding
+from musetalk.processors import ImageProcessor
+from musetalk.faces.face_analysis import FaceAnalyst
+from musetalk.audio.audio_feature_extract import AudioFeatureExtractor
 
 
 @torch.no_grad()
@@ -71,6 +71,10 @@ class Avatar:
 
     def init_avatar(self):
         if self.avatar_path.exists():
+            if not self.validate_avatar():
+                print(f"{self.avatar_id} is not a valid avatar")
+                shutil.rmtree(self.avatar_path)
+                return
             # 加载frames、coord_cycle、input_latent_cycle
             frame_list = sorted(
                 list(self.full_images_path.glob('*.[jpJP][pnPN]*[gG]'))
@@ -110,7 +114,14 @@ class Avatar:
         and files named coord.npy, latents.npy
         """
         if not self.full_images_path.exists():
-            pass
+            return False
+        if not self.full_masks_path.exists():
+            return False
+        if not (self.avatar_path / 'latents.npy').exists():
+            return False
+        if not (self.avatar_path / 'coords.npy').exists():
+            return False
+        return True
 
     def prepare_avatar(self):
         print("preparing avatar ...")

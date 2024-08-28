@@ -1,5 +1,4 @@
 import os
-import sys
 import random
 
 import cv2
@@ -8,9 +7,11 @@ import numpy as np
 from torch.utils.data import DataLoader, Dataset
 
 from common.setting import settings
-from musetalk_plus.processors import ImageProcessor
+from musetalk.processors import ImageProcessor
 
-RESIZED_IMG = 256
+RESIZED_IMG = settings.common.image_size
+HIDDEN_SIZE = settings.common.hidden_size
+EMBEDDING_DIM = settings.common.embedding_dim
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 
@@ -24,8 +25,8 @@ class MuseTalkDataset(Dataset):
         self.audio_window = audio_window
         self.related_window = related_window
 
-        self.hidden_dim = 50
-        self.embedding_dim = 384
+        self.hidden_dim = HIDDEN_SIZE
+        self.embedding_dim = EMBEDDING_DIM
         self.image_processor = ImageProcessor()
         self.load_filenames()
 
