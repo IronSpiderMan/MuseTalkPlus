@@ -1,3 +1,5 @@
+from typing import Optional
+
 import cv2
 import numpy as np
 from PIL import Image, ImageDraw
@@ -38,7 +40,7 @@ class FaceAnalyst:
         return curve
 
     @staticmethod
-    def face_location(key_points, shift: int | None = 15):
+    def face_location(key_points, shift: Optional[int] = 15):
         landmark_points = key_points[0][23:91]
         face_area = landmark_points[0: 27]
         min_x = np.min(face_area[:, 0])
