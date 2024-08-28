@@ -69,7 +69,7 @@ def recreate_multiple_dirs(path_list):
     make_multiple_dirs(path_list)
 
 
-def read_images(img_list, grayscale=False):
+def read_images(img_list, grayscale=False, to_rgb=True):
     """
     根据图像的文件列表，使用多线程读取图像，返回图像RGB模式的ndarray列表
     """
@@ -81,8 +81,7 @@ def read_images(img_list, grayscale=False):
         else:
             imread = cv2.imread
         for frame in tqdm(executor.map(imread, img_list), total=len(img_list), desc='Reading images'):
-            if not grayscale:
-                # 转RGB
-                frame = frame[:, :, ::-1]
+            if not grayscale and to_rgb:
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             frames.append(frame)
     return frames
