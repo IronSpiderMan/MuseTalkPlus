@@ -1,99 +1,98 @@
-import os
 import sys
-import glob
 import shutil
 import argparse
+from pathlib import Path
+from typing import Union, Optional
 
 import cv2
-import tqdm
 import torch
 import numpy as np
+from tqdm import tqdm
 
 sys.path.append('.')
 
-from musetalk.models.vae import VAE
-from musetalk.utils.utils import video2images, video2audio
-from musetalk.utils.preprocessing import get_landmark_and_bbox
-# from musetalk.whisper.audio_feature_extractor import AudioFeatureExtractor
-from musetalk.audio.feature_extractor import AudioFrameExtractor
+from musetalk_plus.faces.face_analysis import FaceAnalyst
+from musetalk_plus.audio.feature_extractor import AudioFrameExtractor
+from musetalk_plus.audio.audio_feature_extract import AudioFeatureExtractor
 
-from common.utils import recreate_multiple_dirs
+from common.setting import settings
+from common.utils import read_images, video2images, video2audio, recreate_multiple_dirs
 from common.setting import (
     TMP_FRAME_DIR, TMP_AUDIO_DIR, TMP_DATASET_DIR,
-    VIDEO_FRAME_DIR, AUDIO_FEATURE_DIR, VIDEO_LATENT_DIR, VAE_PATH
+    VIDEO_FRAME_DIR, AUDIO_FEATURE_DIR,
 )
 
-# afe = AudioFeatureExtractor()
-afe = AudioFrameExtractor(r"F:\models\whisper-tiny-zh")
-vae: VAE
 device = "cuda" if torch.cuda.is_available() else "cpu"
+afe: Union[AudioFeatureExtractor, AudioFrameExtractor]
+fa = FaceAnalyst(settings.models.dwpose_config_path, settings.models.dwpose_model_path)
 
 
-def process_video(video_path="./data/video/zack.mp4", include_latents=False):
-    video_name = os.path.basename(video_path).split('.')[0]
-    recreate_multiple_dirs([
-        VIDEO_FRAME_DIR / video_name,
-        VIDEO_LATENT_DIR / video_name,
-        AUDIO_FEATURE_DIR / video_name,
-        TMP_FRAME_DIR,
-        TMP_AUDIO_DIR
-    ])
-    # 提取视频帧
-    video2images(video_path, TMP_FRAME_DIR)
-    # 提取音频
-    audio_path = video2audio(video_path, TMP_AUDIO_DIR)
-    # 提取特征
-    feature_chunks = afe.extract_frames(audio_path)
-    # feature_chunks = afe.extract_and_chunk_feature(audio_path, fps=25)
-    # 截取脸部
-    path_pattern = TMP_FRAME_DIR / video_name / "*"
-    img_list = list(glob.glob(str(path_pattern)))
-    coord_list, frame_list = get_landmark_and_bbox(img_list, 5)
-    for idx, (coord, frame, chunk) in enumerate(zip(coord_list, frame_list, feature_chunks)):
-        try:
-            x1, y1, x2, y2 = coord
+def process_video(video_path, face_shift=None):
+    video_name = video_path.stem
+    recreate_multiple_dirs([TMP_FRAME_DIR, TMP_AUDIO_DIR])
+    # 视频部分的预处理
+    if not (VIDEO_FRAME_DIR / video_name).exists():
+        (VIDEO_FRAME_DIR / video_name).mkdir(parents=True, exist_ok=True)
+        video2images(video_path, TMP_FRAME_DIR)
+        frame_list = read_images([str(img) for img in TMP_FRAME_DIR.glob('*')], to_rgb=False)
+        for fidx, frame in tqdm(
+                enumerate(frame_list),
+                total=len(frame_list),
+                desc=f"Processing video: {video_name}"
+        ):
+            pts = fa.analysis(frame)
+            bbox = fa.face_location(pts, shift=face_shift)
+            x1, y1, x2, y2 = bbox
             crop_frame = frame[y1:y2, x1:x2]
             resized_crop_frame = cv2.resize(crop_frame, (256, 256), interpolation=cv2.INTER_LANCZOS4)
-            dst = VIDEO_FRAME_DIR / video_name / f"{idx}.png"
+            dst = VIDEO_FRAME_DIR / video_name / f"{fidx:08d}.png"
             cv2.imwrite(str(dst), resized_crop_frame)
-            if include_latents:
-                dst = VIDEO_LATENT_DIR / video_name / f"{idx}.npy"
-                latent = vae.get_latents_for_unet(resized_crop_frame).cpu().numpy()[0]
-                np.save(str(dst), latent)
-            dst = AUDIO_FEATURE_DIR / video_name / f"{idx}.npy"
+    else:
+        print(f"Video {video_name} is already processed")
+
+    # 音频部分的预处理
+    if not (AUDIO_FEATURE_DIR / video_name).exists():
+        (AUDIO_FEATURE_DIR / video_name).mkdir(parents=True, exist_ok=True)
+        audio_path = video2audio(video_path, TMP_AUDIO_DIR)
+        feature_chunks = afe.extract_features(audio_path)
+        for fidx, chunk in tqdm(
+                enumerate(feature_chunks),
+                total=len(feature_chunks),
+                desc=f"Processing video {video_name} 's audio"
+        ):
+            dst = AUDIO_FEATURE_DIR / video_name / f"{fidx:08d}.npy"
             np.save(str(dst), chunk)
-        except Exception as e:
-            print(e)
-    shutil.rmtree(TMP_DATASET_DIR)
+        shutil.rmtree(TMP_DATASET_DIR)
+    else:
+        print("Video {video_name}'s audio has already been processed.}")
 
 
-def process_videos(video_dir="./datasets/videos", include_latents=False):
-    for file in tqdm.tqdm(glob.glob(video_dir + "/*.mp4")):
-        process_video(file, include_latents)
+def process_videos(video_dir="./datasets/videos", face_shift=None):
+    video_list = list(Path(video_dir).glob("*.mp4"))
+    for video_path in tqdm(video_list, total=len(video_list), desc='Processing videos'):
+        process_video(video_path, face_shift)
 
 
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--include_latents",
-        type=bool,
-        default=False
-    )
-    parser.add_argument(
         "--videos_dir",
         type=str,
         default="./datasets/videos"
+    )
+    parser.add_argument(
+        "--face_shift",
+        type=Optional[int],
+        default=None,
     )
     return parser.parse_args()
 
 
 def main():
-    global vae
     args = parse_args()
-    if args.include_latents:
-        vae = VAE(VAE_PATH)
-        vae.vae = vae.vae.to(device)
-    process_videos(video_dir=args.videos_dir, include_latents=args.include_latents)
+    global afe
+    afe = AudioFeatureExtractor(settings.models.whisper_path, device=device, dtype=torch.float32)
+    process_videos(video_dir=args.videos_dir, face_shift=args.face_shift)
 
 
 if __name__ == '__main__':

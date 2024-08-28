@@ -1,6 +1,5 @@
 import os
 import sys
-import json
 import datetime
 from argparse import ArgumentParser
 
@@ -11,29 +10,30 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from accelerate import Accelerator
 from accelerate.utils import set_seed
-from diffusers import AutoencoderKL, UNet2DConditionModel
+from diffusers import AutoencoderKL
 
 sys.path.append('.')
-
 from train.musetalk.datasets import MuseTalkDataset
-from common.setting import VAE_PATH, UNET_CONFIG_PATH, TRAIN_OUTPUT_DIR, UNET_PATH
-from musetalk.models.unet import PositionalEncoding
+from musetalk_plus.models import MuseTalkModel, PositionalEncoding
+from common.setting import VAE_PATH, TRAIN_OUTPUT_DIR, UNET_PATH
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 vae = AutoencoderKL.from_pretrained(VAE_PATH, subfolder="vae").to(device)
 vae.requires_grad_(False)
-pe = PositionalEncoding().to(device)
+
+pe = PositionalEncoding()
+pe.requires_grad_(False)
 
 
-def training_loop(epochs, lr, batch_size, mixed_precision='no', max_checkpoints=10, audio_window=5, resume_from=None):
+def training_loop(
+        epochs, lr, batch_size, mixed_precision='no', max_checkpoints=10, audio_window=0, related_window=5, gamma=0.5
+):
     train_loader = DataLoader(
-        MuseTalkDataset(audio_window=audio_window), batch_size=batch_size, num_workers=4, pin_memory=True
+        MuseTalkDataset(audio_window=audio_window, related_window=related_window), batch_size=batch_size, num_workers=4,
+        pin_memory=False
     )
-    # with open(UNET_CONFIG_PATH, "r") as f:
-    #     unet_config = json.load(f)
-    model = UNet2DConditionModel.from_pretrained(UNET_PATH).to(device)
-    # model = UNet2DConditionModel(**unet_config).to(device)
+    model = MuseTalkModel(UNET_PATH).to(device)
     optimizer = optim.AdamW(params=model.parameters(), lr=lr)
     lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(
         optimizer=optimizer,
@@ -46,6 +46,9 @@ def training_loop(epochs, lr, batch_size, mixed_precision='no', max_checkpoints=
         model, optimizer, lr_scheduler, train_loader
     )
 
+    accumulation_steps = 4
+    optimizer.zero_grad()
+
     # 初始化用于存储检查点信息的变量
     checkpoint_list = []
     min_loss = float('inf')
@@ -54,35 +57,37 @@ def training_loop(epochs, lr, batch_size, mixed_precision='no', max_checkpoints=
     # 训练
     for epoch in range(epochs):
         model.train()
-        for step, (target_image, related_image, masked_image, audio_feature) in tqdm(
+        for step, (target_image, avatar_image, masked_image, audio_feature) in tqdm(
                 enumerate(train_loader),
                 total=len(train_loader)
         ):
-            target_image, related_image, masked_image, audio_feature = (
-                target_image.to(device),
-                related_image.to(device),
-                masked_image.to(device),
-                audio_feature.to(device)
-            )
             with torch.no_grad():
-                # 获取目标的latents
-                latents = vae.encode(target_image.to(vae.dtype)).latent_dist.sample()
-                latents = latents * vae.config.scaling_factor
-                # 获取输入的latents
-                masked_latents = vae.encode(masked_image.to(vae.dtype)).latent_dist.sample()
-                masked_latents = masked_latents * vae.config.scaling_factor
-                related_image = vae.encode(related_image.to(vae.dtype)).latent_dist.sample()
-                related_image = related_image * vae.config.scaling_factor
-                input_latents = torch.cat([masked_latents, related_image], dim=1)
                 audio_feature = pe(audio_feature)
+                # 获取目标的latents
+                target_latents = vae.encode(target_image).latent_dist.sample()
+                target_latents = target_latents * vae.config.scaling_factor
+                # 获取输入的latents
+                avatar_latents = vae.encode(avatar_image).latent_dist.sample()
+                avatar_latents = avatar_latents * vae.config.scaling_factor
+                masked_latents = vae.encode(masked_image).latent_dist.sample()
+                masked_latents = masked_latents * vae.config.scaling_factor
             # Forward
-            image_pred = model(input_latents, 0, encoder_hidden_states=audio_feature).sample
-            loss = F.mse_loss(image_pred.float(), latents.float(), reduction="mean")
+            input_latents = torch.cat([masked_latents, avatar_latents], dim=1)
+            pred_latents = model((input_latents, audio_feature))
+            l1 = F.l1_loss(pred_latents.float(), target_latents.float(), reduction="mean")
+            # 对预测图像解码
+            pred_latents = (1 / vae.config.scaling_factor) * pred_latents
+            pred_images = vae.decode(pred_latents).sample
+            l2 = F.l1_loss(pred_images.float(), target_image.float(), reduction="mean")
+            loss = (l1 * gamma + l2) / accumulation_steps
+
             # Backward
             accelerator.backward(loss)
-            optimizer.step()
-            lr_scheduler.step()
-            optimizer.zero_grad()
+
+            if (step + 1) % accumulation_steps == 0:
+                optimizer.step()
+                optimizer.zero_grad()
+                lr_scheduler.step()
 
             # 保存检查点
             if (step + 1) % 1000 == 0:
@@ -92,7 +97,7 @@ def training_loop(epochs, lr, batch_size, mixed_precision='no', max_checkpoints=
 
                 # 保存当前检查点
                 checkpoint_path = TRAIN_OUTPUT_DIR / f"checkpoint-epoch-{epoch + 1}-iters-{step + 1}-loss-{loss:.5f}.pt"
-                accelerator.save(accelerator.get_state_dict(model), checkpoint_path)
+                accelerator.save(accelerator.get_state_dict(model.unet), checkpoint_path)
                 checkpoint_list.append(checkpoint_path)
 
                 # 维护最多10个检查点
@@ -109,7 +114,7 @@ def training_loop(epochs, lr, batch_size, mixed_precision='no', max_checkpoints=
 
                     # 复制最小损失的检查点
                     min_loss_checkpoint_copy = TRAIN_OUTPUT_DIR / "best_checkpoint.pt"
-                    accelerator.save(accelerator.get_state_dict(model), min_loss_checkpoint_copy)
+                    accelerator.save(accelerator.get_state_dict(model.unet), min_loss_checkpoint_copy)
 
 
 def parse_args():
@@ -127,12 +132,17 @@ def parse_args():
     parser.add_argument(
         "--audio_window",
         type=int,
+        default=0
+    )
+    parser.add_argument(
+        "--related_window",
+        type=int,
         default=5
     )
     parser.add_argument(
-        "--resume_from",
-        type=str,
-        default=None,
+        "--gamma",
+        type=float,
+        default=0.5
     )
     return parser.parse_args()
 
@@ -141,7 +151,7 @@ def main():
     args = parse_args()
     training_loop(
         args.epochs, lr=1e-5, batch_size=args.batch_size, mixed_precision="no", audio_window=args.audio_window,
-        resume_from=args.resume_from
+        related_window=args.related_window, gamma=args.gamma
     )
 
 
