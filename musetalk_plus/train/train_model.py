@@ -17,19 +17,15 @@ sys.path.append('.')
 from musetalk_plus.train.datasets import MuseTalkDataset
 from musetalk_plus.models import MuseTalkModel
 from common.setting import VAE_PATH, TRAIN_OUTPUT_DIR, UNET_PATH
-from musetalk.models.unet import PositionalEncoding
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 vae = AutoencoderKL.from_pretrained(VAE_PATH, subfolder="vae").to(device)
 vae.requires_grad_(False)
 
-pe = PositionalEncoding().to(device)
-pe.requires_grad_(False)
-
 
 def training_loop(
-        epochs, lr, batch_size, mixed_precision='no', max_checkpoints=10, audio_window=0, related_window=5,
+        epochs, lr, batch_size, mixed_precision='no', max_checkpoints=10, audio_window=0, related_window=5, gamma=0.5
 ):
     train_loader = DataLoader(
         MuseTalkDataset(audio_window=audio_window, related_window=related_window), batch_size=batch_size, num_workers=4,
@@ -64,7 +60,6 @@ def training_loop(
                 total=len(train_loader)
         ):
             with torch.no_grad():
-                audio_feature = pe(audio_feature)
                 # 获取目标的latents
                 target_latents = vae.encode(target_image).latent_dist.sample()
                 target_latents = target_latents * vae.config.scaling_factor
@@ -81,7 +76,7 @@ def training_loop(
             pred_latents = (1 / vae.config.scaling_factor) * pred_latents
             pred_images = vae.decode(pred_latents).sample
             l2 = F.l1_loss(pred_images.float(), target_image.float(), reduction="mean")
-            loss = (l1 * 0.8 + l2) / accumulation_steps
+            loss = (l1 * gamma + l2) / accumulation_steps
 
             # Backward
             accelerator.backward(loss)
@@ -99,7 +94,7 @@ def training_loop(
 
                 # 保存当前检查点
                 checkpoint_path = TRAIN_OUTPUT_DIR / f"checkpoint-epoch-{epoch + 1}-iters-{step + 1}-loss-{loss:.5f}.pt"
-                accelerator.save(accelerator.get_state_dict(model.unet), checkpoint_path)
+                accelerator.save(accelerator.get_state_dict(model), checkpoint_path)
                 checkpoint_list.append(checkpoint_path)
 
                 # 维护最多10个检查点
@@ -116,7 +111,7 @@ def training_loop(
 
                     # 复制最小损失的检查点
                     min_loss_checkpoint_copy = TRAIN_OUTPUT_DIR / "best_checkpoint.pt"
-                    accelerator.save(accelerator.get_state_dict(model.unet), min_loss_checkpoint_copy)
+                    accelerator.save(accelerator.get_state_dict(model), min_loss_checkpoint_copy)
 
 
 def parse_args():
@@ -141,6 +136,11 @@ def parse_args():
         type=int,
         default=5
     )
+    parser.add_argument(
+        "--gamma",
+        type=float,
+        default=0.5
+    )
     return parser.parse_args()
 
 
@@ -148,7 +148,7 @@ def main():
     args = parse_args()
     training_loop(
         args.epochs, lr=1e-5, batch_size=args.batch_size, mixed_precision="no", audio_window=args.audio_window,
-        related_window=args.related_window
+        related_window=args.related_window, gamma=args.gamma
     )
 
 

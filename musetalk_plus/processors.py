@@ -17,10 +17,13 @@ class ImageProcessor:
     def __call__(self, image, half_mask=False) -> torch.Tensor:
         if isinstance(image, str):
             image = cv2.imread(image)
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         if half_mask:
             image[image.shape[0] // 2:, :, :] = 0
         image = cv2.resize(image, (self.image_size, self.image_size), interpolation=cv2.INTER_LINEAR)
         image = self.transform(image)
+        self.mean = self.mean.to(image.device)
+        self.std = self.std.to(image.device)
         return image
 
     def de_process(self, image: torch.Tensor) -> np.ndarray:
