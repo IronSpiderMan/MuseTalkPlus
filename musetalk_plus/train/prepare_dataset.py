@@ -35,7 +35,7 @@ def process_video(video_path, face_shift=None):
         VIDEO_FRAME_DIR.mkdir(exist_ok=True)
         (VIDEO_FRAME_DIR / video_name).mkdir(exist_ok=True)
         video2images(video_path, TMP_FRAME_DIR)
-        frame_list = read_images([str(img) for img in TMP_FRAME_DIR.glob('*')])
+        frame_list = read_images([str(img) for img in TMP_FRAME_DIR.glob('*')], to_rgb=False)
     else:
         frame_list = []
     for fidx, frame in tqdm(

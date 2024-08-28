@@ -17,8 +17,8 @@ elif ffmpeg_path not in os.getenv('PATH'):
 
 from musetalk.models.vae import VAE
 from musetalk.models.unet import UNet, PositionalEncoding
-from musetalk.whisper.feature_extractor import AudioFrameExtractor
-from musetalk.whisper.audio_feature_extractor import AudioFeatureExtractor
+from musetalk.audio.feature_extractor import AudioFrameExtractor
+from musetalk.audio.audio_feature_extractor import AudioFeatureExtractor
 from common.setting import VAE_PATH, UNET_CONFIG_PATH, UNET_MODEL_PATH, WHISPER_PATH, WHISPER_FT_PATH
 
 voices = pd.DataFrame([
