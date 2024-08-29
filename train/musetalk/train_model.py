@@ -102,13 +102,13 @@ def training_loop(
                 # 保存checkpoint
                 if accelerator.sync_gradients:
                     global global_step
-                    global_step += 1
                     if global_step % 1000 == 0:
                         print(f"iters: {global_step}, loss: {loss.item()}")
                         if accelerator.is_main_process:
                             save_path = Path(output_dir) / f"checkpoint-{global_step}"
                             accelerator.save(accelerator.get_state_dict(model.unet), save_path)
                             logger.info(f"Saved state to {save_path}")
+                global_step += 1
 
 
 def parse_args():
