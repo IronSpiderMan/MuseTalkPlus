@@ -102,7 +102,7 @@ def training_loop(
                 # 保存checkpoint
                 if accelerator.sync_gradients:
                     global global_step
-                    if global_step % 1000 == 0:
+                    if global_step % (100 * accelerator.gradient_accumulation_steps) == 0:
                         print(f"iters: {global_step}, loss: {loss.item()}")
                         if accelerator.is_main_process:
                             save_path = Path(output_dir) / f"checkpoint-{global_step}"
