@@ -66,12 +66,12 @@ def training_loop(
                 vae = vae.half()
                 audio_feature = pe(audio_feature)
                 # 获取目标的latents
-                target_latents = vae.encode(target_image).latent_dist.sample()
+                target_latents = vae.encode(target_image.to(dtype=vae.dtype)).latent_dist.sample()
                 target_latents = target_latents * vae.config.scaling_factor
                 # 获取输入的latents
-                avatar_latents = vae.encode(avatar_image).latent_dist.sample()
+                avatar_latents = vae.encode(avatar_image.to(dtype=vae.dtype)).latent_dist.sample()
                 avatar_latents = avatar_latents * vae.config.scaling_factor
-                masked_latents = vae.encode(masked_image).latent_dist.sample()
+                masked_latents = vae.encode(masked_image.to(dtype=vae.dtype)).latent_dist.sample()
                 masked_latents = masked_latents * vae.config.scaling_factor
                 input_latents = torch.cat([masked_latents, avatar_latents], dim=1)
                 # Forward
