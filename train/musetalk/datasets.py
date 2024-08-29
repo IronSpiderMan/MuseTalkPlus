@@ -19,11 +19,11 @@ class MuseTalkDataset(Dataset):
     def __init__(
             self,
             audio_window=0,
-            related_window=5
+            reference_window=5
     ):
         self.all_data = {}
         self.audio_window = audio_window
-        self.related_window = related_window
+        self.reference_window = reference_window
 
         self.hidden_dim = HIDDEN_SIZE
         self.embedding_dim = EMBEDDING_DIM
@@ -77,11 +77,15 @@ class MuseTalkDataset(Dataset):
         return torch.FloatTensor(results.reshape(-1, self.embedding_dim))
 
     def load_frames(self, video_name, frame_idx: int):
-        related_frame_idx = random.randint(
-            max(0, frame_idx - self.related_window),
-            min(frame_idx + self.related_window, len(self.all_data[video_name]['image_files']) - 2)
-        )
-        frame_list = [frame_idx, related_frame_idx]
+        # 原项目的reference_frame(related_frame)范围为[0-frame_idx,frame_idx+5]
+        reference_frame_idx = random.randint(0, len(self.all_data[video_name]['image_files']) - 1)
+        while abs(reference_frame_idx - frame_idx) <= self.reference_window:
+            reference_frame_idx = random.randint(0, len(self.all_data[video_name]['image_files']) - 1)
+        # related_frame_idx = random.randint(
+        #     max(0, frame_idx - self.related_window),
+        #     min(frame_idx + self.related_window, len(self.all_data[video_name]['image_files']) - 2)
+        # )
+        frame_list = [frame_idx, reference_frame_idx]
         images = []
         for frame_idx in frame_list:
             images.append(self.load_frame(video_name, frame_idx))

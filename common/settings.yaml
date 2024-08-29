@@ -16,7 +16,7 @@ train:
   batch_size: 4
   epochs: 10
   audio_window: 0
-  related_window: 5
+  reference_window: 5
   gamma: 2.0
   output: outputs/checkpoints
 

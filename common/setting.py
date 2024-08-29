@@ -27,7 +27,7 @@ class TrainConfig:
     batch_size: int
     epochs: int
     audio_window: int
-    related_window: int
+    reference_window: int
     gamma: float
     output: str
 

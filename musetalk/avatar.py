@@ -212,6 +212,7 @@ class Avatar:
         images2video(self.tmp_path, tmp_video_path)
         merge_audio_video(tmp_video_path, audio_path, video_path)
         tmp_video_path.unlink()
+        shutil.rmtree(self.tmp_path)
 
     def increase_idx(self):
         self.idx = self.idx + 1 % len(self.frame_cycle)
