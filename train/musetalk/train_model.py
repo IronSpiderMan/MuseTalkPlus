@@ -63,7 +63,7 @@ def training_loop(
                 total=len(train_loader)
         ):
             with accelerator.accumulate(model):
-                vae = vae.half()
+                # vae = vae.half()
                 audio_feature = pe(audio_feature)
                 # 获取目标的latents
                 target_latents = vae.encode(target_image.to(dtype=vae.dtype)).latent_dist.sample()
