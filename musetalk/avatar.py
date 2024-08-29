@@ -13,7 +13,7 @@ from diffusers import AutoencoderKL
 sys.path.append('.')
 from common.setting import settings
 from common.utils import video2images, read_images
-from musetalk.utils import datagen, images2video
+from musetalk.utils import datagen, images2video, merge_audio_video
 from musetalk.models import MuseTalkModel, PositionalEncoding
 from musetalk.processors import ImageProcessor
 from musetalk.faces.face_analysis import FaceAnalyst
@@ -207,8 +207,11 @@ class Avatar:
                 pil_frame.save(str(self.tmp_path / f'{frame_idx:08d}.jpg'))
                 frame_idx += 1
                 self.idx += 1
-        images2video(self.tmp_path, self.vid_output_path / (Path(audio_path).stem + '.mp4'))
-        shutil.rmtree(self.tmp_path)
+        tmp_video_path = self.vid_output_path / (Path(audio_path).stem + '_tmp.mp4')
+        video_path = self.vid_output_path / (Path(audio_path).stem + '.mp4')
+        images2video(self.tmp_path, tmp_video_path)
+        merge_audio_video(tmp_video_path, audio_path, video_path)
+        tmp_video_path.unlink()
 
     def increase_idx(self):
         self.idx = self.idx + 1 % len(self.frame_cycle)
