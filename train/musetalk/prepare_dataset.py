@@ -37,7 +37,7 @@ def process_video(video_path, face_shift=None):
     if not (video_frame_dir / video_name).exists():
         (video_frame_dir / video_name).mkdir(parents=True, exist_ok=True)
         video2images(video_path, tmp_frame_dir)
-        frame_list = read_images([str(img) for img in tmp_audio_dir.glob('*')], to_rgb=False)
+        frame_list = read_images([str(img) for img in tmp_frame_dir.glob('*')], to_rgb=False)
         for fidx, frame in tqdm(
                 enumerate(frame_list),
                 total=len(frame_list),
@@ -66,7 +66,6 @@ def process_video(video_path, face_shift=None):
         ):
             dst = audio_feature_dir / video_name / f"{fidx:08d}.npy"
             np.save(str(dst), chunk)
-        shutil.rmtree(tmp_frame_dir.parent.parent)
     else:
         print("Video {video_name}'s audio has already been processed.}")
 

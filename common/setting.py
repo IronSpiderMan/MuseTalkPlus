@@ -19,6 +19,7 @@ class DatasetConfig:
     audios_dir: str
     images_dir: str
     latents_dir: str
+    masks_dir: str
     audio_window: int
 
 

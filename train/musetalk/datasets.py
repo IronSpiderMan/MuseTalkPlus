@@ -4,6 +4,7 @@ import random
 import cv2
 import torch
 import numpy as np
+from PIL import Image
 from torch.utils.data import DataLoader, Dataset
 
 from common.setting import settings
@@ -38,13 +39,20 @@ class MuseTalkDataset(Dataset):
         for video_name in os.listdir(settings.dataset.images_dir):
             self.all_data[video_name] = {
                 "image_files": [],
-                "audio_files": []
+                "audio_files": [],
+                "mask_files": []
             }
             # 各个视频对应的图片路径
             images_dir = os.path.join(settings.dataset.images_dir, video_name)
             for filename in self.sort_files(os.listdir(images_dir)):
                 self.all_data[video_name]["image_files"].append(
                     os.path.join(images_dir, filename)
+                )
+            # 各个视频对应的图片mask路径
+            masks_dir = os.path.join(settings.dataset.masks_dir, video_name)
+            for filename in self.sort_files(os.listdir(masks_dir)):
+                self.all_data[video_name]["mask_files"].append(
+                    os.path.join(masks_dir, filename)
                 )
             # 各个视频对应的音频路径
             audios_dir = os.path.join(settings.dataset.audios_dir, video_name)
@@ -85,12 +93,25 @@ class MuseTalkDataset(Dataset):
         #     max(0, frame_idx - self.related_window),
         #     min(frame_idx + self.related_window, len(self.all_data[video_name]['image_files']) - 2)
         # )
-        frame_list = [frame_idx, reference_frame_idx]
-        images = []
-        for frame_idx in frame_list:
-            images.append(self.load_frame(video_name, frame_idx))
-        images.append(self.load_frame(video_name, frame_idx, True))
-        # images三个元素分别为, target_image, avatar_image, masked_image
+        # 如果有mask
+        if len(self.all_data[video_name]['mask_files']) == len(self.all_data[video_name]['image_files']):
+            # 读取当前图像
+            frame = Image.open(self.all_data[video_name]['image_files'][frame_idx])
+            mask = Image.open(self.all_data[video_name]['mask_files'][frame_idx]).convert('L')
+            reference = Image.open(self.all_data[video_name]['image_files'][reference_frame_idx])
+            frame.paste(reference, (0, 0), mask=mask)
+            images = [
+                self.load_frame(video_name, frame_idx),
+                self.image_processor(np.array(frame)),
+                self.load_frame(video_name, frame_idx, True)
+            ]
+        else:
+            frame_list = [frame_idx, reference_frame_idx]
+            images = []
+            for frame_idx in frame_list:
+                images.append(self.load_frame(video_name, frame_idx))
+            images.append(self.load_frame(video_name, frame_idx, True))
+        # images三个元素分别为, target_image, reference, masked_image
         return images
 
     def load_frame(self, video_name, frame_idx, half_masked=False):
@@ -112,10 +133,10 @@ class MuseTalkDataset(Dataset):
         # TODO masked_image应该使用非target_image旁边的图像，因为在推理时我们不知道target_image
         # 在audio_window ~ len(images)-audio_window范围选一张图片
         frame_idx = random.randint(self.audio_window, len(video_data['image_files']) - self.audio_window - 1)
-        target_image, avatar_image, masked_image = self.load_frames(video_name, frame_idx)
+        target_image, reference_image, masked_image = self.load_frames(video_name, frame_idx)
         # 获取对应音频即window中的音频
         audio_feature = self.load_audio_feature_with_window(video_name, frame_idx)
-        return target_image, avatar_image, masked_image, audio_feature
+        return target_image, reference_image, masked_image, audio_feature
 
 
 if __name__ == "__main__":

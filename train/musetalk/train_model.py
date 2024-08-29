@@ -48,7 +48,7 @@ def training_loop(
     # 训练
     for epoch in range(epochs):
         model.train()
-        for step, (target_image, avatar_image, masked_image, audio_feature) in tqdm(
+        for step, (target_image, reference_image, masked_image, audio_feature) in tqdm(
                 enumerate(train_loader),
                 total=len(train_loader)
         ):
@@ -58,22 +58,22 @@ def training_loop(
                 target_latents = vae.encode(target_image.to(dtype=vae.dtype)).latent_dist.sample()
                 target_latents = target_latents * vae.config.scaling_factor
                 # 获取输入的latents
-                avatar_latents = vae.encode(avatar_image.to(dtype=vae.dtype)).latent_dist.sample()
-                avatar_latents = avatar_latents * vae.config.scaling_factor
+                reference_latents = vae.encode(reference_image.to(dtype=vae.dtype)).latent_dist.sample()
+                reference_latents = reference_latents * vae.config.scaling_factor
                 masked_latents = vae.encode(masked_image.to(dtype=vae.dtype)).latent_dist.sample()
                 masked_latents = masked_latents * vae.config.scaling_factor
-                input_latents = torch.cat([masked_latents, avatar_latents], dim=1)
+                input_latents = torch.cat([masked_latents, reference_latents], dim=1)
                 # Forward
                 pred_latents = model((input_latents.float(), audio_feature))
-                loss_latents = F.l1_loss(pred_latents.float(), target_latents.float(), reduction="mean")
+                latents_loss = F.l1_loss(pred_latents.float(), target_latents.float(), reduction="mean")
                 # 对预测图像解码
                 pred_latents = (1 / vae.config.scaling_factor) * pred_latents
                 pred_images = vae.decode(pred_latents.to(dtype=vae.dtype)).sample
-                loss_lip = F.l1_loss(
+                lip_loss = F.l1_loss(
                     pred_images[:, :, pred_images.shape[2] // 2:, :].float(),
                     target_image[:, :, target_image.shape[2] // 2:, :].float(),
                 )
-                loss = gamma * loss_lip + loss_latents
+                loss = gamma * lip_loss + latents_loss
 
                 # Backward
                 accelerator.backward(loss)

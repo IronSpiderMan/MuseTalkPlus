@@ -10,6 +10,7 @@ dataset:
   audios_dir: datasets/audios
   images_dir: datasets/images
   latents_dir: datasets/latents
+  masks_dir: datasets/masks
   audio_window: 0
 
 train:
