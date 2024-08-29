@@ -90,11 +90,12 @@ def training_loop(
                 accelerator.backward(loss)
                 # 梯度裁剪
                 if accelerator.sync_gradients:
-                    if accelerator.sync_gradients:
-                        params_to_clip = (
-                            itertools.chain(model.unet.parameters())
-                        )
-                        accelerator.clip_grad_norm_(params_to_clip, max_grad_norm)
+                    params_to_clip = (
+                        itertools.chain(model.unet.parameters())
+                    )
+                    accelerator.clip_grad_norm_(params_to_clip, max_grad_norm)
+                    print(f"global_step: {global_step}, sync_gradients: {accelerator.sync_gradients}")
+
                 optimizer.step()
                 lr_scheduler.step()
                 optimizer.zero_grad()
@@ -109,6 +110,11 @@ def training_loop(
                             accelerator.save(accelerator.get_state_dict(model.unet), save_path)
                             logger.info(f"Saved state to {save_path}")
                 global_step += 1
+            # 在每个 epoch 结束后保存一次
+            if accelerator.is_main_process:
+                save_path = Path(output_dir) / f"checkpoint-epoch-{epoch}"
+                accelerator.save(accelerator.get_state_dict(model.unet), save_path)
+                logger.info(f"Saved state to {save_path} at end of epoch {epoch}")
 
 
 def parse_args():
