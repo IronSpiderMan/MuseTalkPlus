@@ -1,6 +1,6 @@
 import os
 import sys
-import datetime
+import itertools
 from pathlib import Path
 from argparse import ArgumentParser
 
@@ -10,7 +10,9 @@ from torch import optim
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from accelerate import Accelerator
-from accelerate.utils import set_seed
+from accelerate.logging import get_logger
+from diffusers.optimization import get_scheduler
+from accelerate.utils import ProjectConfiguration
 from diffusers import AutoencoderKL
 
 sys.path.append('.')
@@ -20,43 +22,38 @@ from musetalk.models import MuseTalkModel, PositionalEncoding
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
-vae = AutoencoderKL.from_pretrained(settings.models.vae_path, subfolder="vae").to(device)
-vae.requires_grad_(False)
-
-pe = PositionalEncoding()
-pe.requires_grad_(False)
+logger = get_logger(__name__)
 
 TRAIN_OUTPUT_DIR = Path(settings.train.output)
 TRAIN_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
+global_step = 0
+
 
 def training_loop(
-        epochs, lr, batch_size, mixed_precision='no', max_checkpoints=10, audio_window=0, related_window=5, gamma=0.5
+        epochs, lr, batch_size, accelerator, audio_window=0, related_window=5, gamma=2.0,
+        max_grad_norm=1, output_dir="outputs"
 ):
     train_loader = DataLoader(
         MuseTalkDataset(audio_window=audio_window, related_window=related_window), batch_size=batch_size, num_workers=4,
-        pin_memory=False
+        pin_memory=False,
     )
+    # 加载需要的模型
+    vae = AutoencoderKL.from_pretrained(settings.models.vae_path, subfolder="vae").to(device)
+    vae.requires_grad_(False)
+    pe = PositionalEncoding()
+    pe.requires_grad_(False)
     model = MuseTalkModel(settings.models.unet_path).to(device)
     optimizer = optim.AdamW(params=model.parameters(), lr=lr)
-    lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(
+    lr_scheduler = get_scheduler(
+        "cosine",
         optimizer=optimizer,
-        max_lr=25 * lr,
-        epochs=epochs, steps_per_epoch=len(train_loader)
+        num_warmup_steps=0 * accelerator.num_processes,
+        num_training_steps=100000 * accelerator.num_processes,
     )
-    set_seed(42)
-    accelerator = Accelerator(mixed_precision=mixed_precision)
     model, optimizer, lr_scheduler, train_loader = accelerator.prepare(
         model, optimizer, lr_scheduler, train_loader
     )
-
-    accumulation_steps = 4
-    optimizer.zero_grad()
-
-    # 初始化用于存储检查点信息的变量
-    checkpoint_list = []
-    min_loss = float('inf')
-    min_loss_checkpoint = None
 
     # 训练
     for epoch in range(epochs):
@@ -65,7 +62,8 @@ def training_loop(
                 enumerate(train_loader),
                 total=len(train_loader)
         ):
-            with torch.no_grad():
+            with accelerator.accumulate(model):
+                vae = vae.half()
                 audio_feature = pe(audio_feature)
                 # 获取目标的latents
                 target_latents = vae.encode(target_image).latent_dist.sample()
@@ -75,50 +73,42 @@ def training_loop(
                 avatar_latents = avatar_latents * vae.config.scaling_factor
                 masked_latents = vae.encode(masked_image).latent_dist.sample()
                 masked_latents = masked_latents * vae.config.scaling_factor
-            # Forward
-            input_latents = torch.cat([masked_latents, avatar_latents], dim=1)
-            pred_latents = model((input_latents, audio_feature))
-            l1 = F.l1_loss(pred_latents.float(), target_latents.float(), reduction="mean")
-            # 对预测图像解码
-            pred_latents = (1 / vae.config.scaling_factor) * pred_latents
-            pred_images = vae.decode(pred_latents).sample
-            l2 = F.l1_loss(pred_images.float(), target_image.float(), reduction="mean")
-            loss = (l1 * gamma + l2) / accumulation_steps
+                input_latents = torch.cat([masked_latents, avatar_latents], dim=1)
+                # Forward
+                pred_latents = model((input_latents, audio_feature))
+                loss_latents = F.l1_loss(pred_latents.float(), target_latents.float(), reduction="mean")
+                # 对预测图像解码
+                pred_latents = (1 / vae.config.scaling_factor) * pred_latents
+                pred_images = vae.decode(pred_latents).sample
+                loss_lip = F.l1_loss(
+                    pred_images[:, :, pred_images.shape[2] // 2:, :].float(),
+                    target_image[:, :, :target_image.shape[2] // 2].float(),
+                )
+                loss = gamma * loss_lip + loss_latents
 
-            # Backward
-            accelerator.backward(loss)
-
-            if (step + 1) % accumulation_steps == 0:
+                # Backward
+                accelerator.backward(loss)
+                # 梯度裁剪
+                if accelerator.sync_gradients:
+                    if accelerator.sync_gradients:
+                        params_to_clip = (
+                            itertools.chain(model.unet.parameters())
+                        )
+                        accelerator.clip_grad_norm_(params_to_clip, max_grad_norm)
                 optimizer.step()
-                optimizer.zero_grad()
                 lr_scheduler.step()
+                optimizer.zero_grad()
 
-            # 保存检查点
-            if (step + 1) % 1000 == 0:
-                accelerator.wait_for_everyone()
-                now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                accelerator.print(f"epoch【{epoch}】@{now} --> loss = {loss:.5f}")
-
-                # 保存当前检查点
-                checkpoint_path = TRAIN_OUTPUT_DIR / f"checkpoint-epoch-{epoch + 1}-iters-{step + 1}-loss-{loss:.5f}.pt"
-                accelerator.save(accelerator.get_state_dict(model.unet), checkpoint_path)
-                checkpoint_list.append(checkpoint_path)
-
-                # 维护最多10个检查点
-                if len(checkpoint_list) > max_checkpoints:
-                    # 删除最早的检查点
-                    oldest_checkpoint = checkpoint_list.pop(0)
-                    if oldest_checkpoint != min_loss_checkpoint:
-                        os.remove(oldest_checkpoint)
-
-                # 更新最小损失检查点
-                if loss < min_loss:
-                    min_loss = loss
-                    min_loss_checkpoint = checkpoint_path
-
-                    # 复制最小损失的检查点
-                    min_loss_checkpoint_copy = TRAIN_OUTPUT_DIR / "best_checkpoint.pt"
-                    accelerator.save(accelerator.get_state_dict(model.unet), min_loss_checkpoint_copy)
+                # 保存checkpoint
+                if accelerator.sync_gradients:
+                    global global_step
+                    global_step += 1
+                    if global_step % 1000 == 0:
+                        print(f"iters: {global_step}, loss: {loss.item()}")
+                        if accelerator.is_main_process:
+                            save_path = Path(output_dir) / f"checkpoint-{global_step}"
+                            accelerator.save(accelerator.get_state_dict(model.unet), save_path)
+                            logger.info(f"Saved state to {save_path}")
 
 
 def parse_args():
@@ -148,14 +138,47 @@ def parse_args():
         type=float,
         default=settings.train.gamma
     )
+    parser.add_argument(
+        "--max_grad_norm",
+        type=float,
+        default=1
+    )
+    parser.add_argument(
+        "--save_limit",
+        type=int,
+        default=10
+    )
+    parser.add_argument(
+        "--output_dir",
+        type=str,
+        default="outputs/checkpoints"
+    )
+    parser.add_argument(
+        "--logging_dir",
+        type=str,
+        default="logs"
+    )
     return parser.parse_args()
 
 
 def main():
     args = parse_args()
+
+    logging_dir = Path(args.output_dir, args.logging_dir)
+
+    project_config = ProjectConfiguration(
+        total_limit=args.save_limit, project_dir=args.output_dir, logging_dir=str(logging_dir)
+    )
+    accelerator = Accelerator(
+        gradient_accumulation_steps=16,
+        mixed_precision="fp16",
+        log_with="tensorboard",
+        project_config=project_config,
+    )
+
     training_loop(
-        args.epochs, lr=1e-5, batch_size=args.batch_size, mixed_precision="no", audio_window=args.audio_window,
-        related_window=args.related_window, gamma=args.gamma
+        args.epochs, lr=1e-5, batch_size=args.batch_size, accelerator=accelerator, audio_window=args.audio_window,
+        related_window=args.related_window, gamma=args.gamma, output_dir=args.output_dir
     )
 
 
