@@ -1,5 +1,8 @@
 import os
+import sys
 import random
+import time
+import uuid
 
 import cv2
 import torch
@@ -7,6 +10,7 @@ import numpy as np
 from PIL import Image
 from torch.utils.data import DataLoader, Dataset
 
+sys.path.append('.')
 from common.setting import settings
 from musetalk.processors import ImageProcessor
 
@@ -49,11 +53,12 @@ class MuseTalkDataset(Dataset):
                     os.path.join(images_dir, filename)
                 )
             # 各个视频对应的图片mask路径
-            masks_dir = os.path.join(settings.dataset.masks_dir, video_name)
-            for filename in self.sort_files(os.listdir(masks_dir)):
-                self.all_data[video_name]["mask_files"].append(
-                    os.path.join(masks_dir, filename)
-                )
+            if os.path.exists(settings.dataset.masks_dir):
+                masks_dir = os.path.join(settings.dataset.masks_dir, video_name)
+                for filename in self.sort_files(os.listdir(masks_dir)):
+                    self.all_data[video_name]["mask_files"].append(
+                        os.path.join(masks_dir, filename)
+                    )
             # 各个视频对应的音频路径
             audios_dir = os.path.join(settings.dataset.audios_dir, video_name)
             for filename in self.sort_files(os.listdir(audios_dir)):
@@ -94,23 +99,29 @@ class MuseTalkDataset(Dataset):
         #     min(frame_idx + self.related_window, len(self.all_data[video_name]['image_files']) - 2)
         # )
         # 如果有mask
-        if len(self.all_data[video_name]['mask_files']) == len(self.all_data[video_name]['image_files']):
-            # 读取当前图像
-            frame = Image.open(self.all_data[video_name]['image_files'][frame_idx])
-            mask = Image.open(self.all_data[video_name]['mask_files'][frame_idx]).convert('L')
-            reference = Image.open(self.all_data[video_name]['image_files'][reference_frame_idx])
-            frame.paste(reference, (0, 0), mask=mask)
-            images = [
-                self.load_frame(video_name, frame_idx),
-                self.image_processor(np.array(frame)),
-                self.load_frame(video_name, frame_idx, True)
-            ]
-        else:
-            frame_list = [frame_idx, reference_frame_idx]
-            images = []
-            for frame_idx in frame_list:
-                images.append(self.load_frame(video_name, frame_idx))
-            images.append(self.load_frame(video_name, frame_idx, True))
+        # if self.all_data[video_name].get('mask_files') and len(self.all_data[video_name]['mask_files']) == len(
+        #         self.all_data[video_name]['image_files']):
+        #     # 读取当前图像
+        #     frame = Image.open(self.all_data[video_name]['image_files'][frame_idx])
+        #     mask = Image.open(self.all_data[video_name]['mask_files'][frame_idx]).convert('L')
+        #     reference = Image.open(self.all_data[video_name]['image_files'][reference_frame_idx])
+        #     frame.paste(reference, (0, 0), mask=mask)
+        #     images = [
+        #         self.load_frame(video_name, frame_idx),
+        #         self.image_processor(np.array(frame)),
+        #         self.load_frame(video_name, frame_idx, True)
+        #     ]
+        # else:
+        #     frame_list = [frame_idx, reference_frame_idx]
+        #     images = []
+        #     for frame_idx in frame_list:
+        #         images.append(self.load_frame(video_name, frame_idx))
+        #     images.append(self.load_frame(video_name, frame_idx, True))
+        frame_list = [frame_idx, reference_frame_idx]
+        images = []
+        for frame_idx in frame_list:
+            images.append(self.load_frame(video_name, frame_idx))
+        images.append(self.load_frame(video_name, frame_idx, True))
         # images三个元素分别为, target_image, reference, masked_image
         return images
 
@@ -149,4 +160,3 @@ if __name__ == "__main__":
         print(ti.shape)
         print(mi.shape)
         print(af.shape)
-        break
