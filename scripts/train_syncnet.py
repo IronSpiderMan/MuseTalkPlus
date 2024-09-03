@@ -37,7 +37,7 @@ def training_loop(
         "cosine",
         optimizer=optimizer,
         num_warmup_steps=500 * accelerator.num_processes,
-        num_training_steps=100000 * accelerator.num_processes,
+        num_training_steps=10000 * accelerator.num_processes,
     )
     model, optimizer, lr_scheduler, train_loader = accelerator.prepare(
         model, optimizer, lr_scheduler, train_loader
@@ -78,7 +78,7 @@ def training_loop(
             accelerator.save(accelerator.get_state_dict(model), save_path)
             logger.info(f"Saved state to {save_path} at end of epoch {epoch}")
         # 评估模型
-        val_loss = evaluate(model, test_loader, loss_fn, accelerator)
+        val_loss = evaluate(model, test_loader, loss_fn)
         print(f"Epoch {epoch}, Validation Loss: {val_loss}")
         logger.info(f"Epoch {epoch}, Validation Loss: {val_loss}")
 
