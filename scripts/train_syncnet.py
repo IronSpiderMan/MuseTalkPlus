@@ -29,7 +29,7 @@ global_step = 1
 
 
 def training_loop(
-        model, train_loader, optimizer, loss_fn, epochs, accelerator,
+        model, train_loader, test_loader, optimizer, loss_fn, epochs, accelerator,
         max_grad_norm=1, output_dir="syncnet"
 ):
     global global_step
@@ -77,6 +77,27 @@ def training_loop(
             save_path = Path(output_dir) / f"checkpoint-epoch-{epoch}.pt"
             accelerator.save(accelerator.get_state_dict(model), save_path)
             logger.info(f"Saved state to {save_path} at end of epoch {epoch}")
+        # 评估模型
+        val_loss = evaluate(model, test_loader, loss_fn, accelerator)
+        print(f"Epoch {epoch}, Validation Loss: {val_loss}")
+        logger.info(f"Epoch {epoch}, Validation Loss: {val_loss}")
+
+
+def evaluate(model, val_loader, loss_fn):
+    model.eval()
+    total_loss = 0.0
+    num_batches = 0
+
+    with torch.no_grad():
+        for images, audios, labels in val_loader:
+            image_embeddings, audio_embeddings = model((images, audios))
+            d = F.cosine_similarity(image_embeddings, audio_embeddings)
+            loss = loss_fn(d.unsqueeze(1), labels.to(dtype=image_embeddings.dtype))
+            total_loss += loss.item()
+            num_batches += 1
+
+    model.train()  # 恢复训练模式
+    return total_loss / num_batches if num_batches > 0 else float('inf')
 
 
 def parse_args():
@@ -141,7 +162,13 @@ def main():
     model = SyncNet().to(device)
 
     train_loader = DataLoader(
-        SyncNetDataset(audio_window=args.audio_window),
+        SyncNetDataset(audio_window=args.audio_window, split="train"),
+        batch_size=args.batch_size,
+        num_workers=4,
+        pin_memory=False,
+    )
+    test_loader = DataLoader(
+        SyncNetDataset(audio_window=args.audio_window, split="test"),
         batch_size=args.batch_size,
         num_workers=4,
         pin_memory=False,
@@ -149,7 +176,7 @@ def main():
     optimizer = optim.AdamW(params=model.parameters(), lr=args.learning_rate)
 
     training_loop(
-        model, train_loader, optimizer, nn.BCELoss(), args.epochs, accelerator=accelerator,
+        model, train_loader, test_loader, optimizer, nn.BCELoss(), args.epochs, accelerator=accelerator,
         output_dir=args.output_dir
     )
 
