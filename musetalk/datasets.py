@@ -1,6 +1,9 @@
+import json
 import os
 import sys
 import random
+from typing import Literal
+from pathlib import Path
 
 import cv2
 import torch
@@ -22,7 +25,8 @@ class MuseTalkDataset(Dataset):
             self,
             audio_window=2,
             reference_window=5,
-            sync_t=5
+            sync_t=5,
+            split: Literal['train', 'test', 'all'] = 'all',
     ):
         self.all_data = {}
         self.audio_window = audio_window
@@ -30,6 +34,7 @@ class MuseTalkDataset(Dataset):
         # 获取多少个连续帧，sync_t最小为1
         assert 1 <= sync_t
         self.sync_t = sync_t
+        self.split = split
 
         self.hidden_dim = (self.audio_window * 2 + 1) * 10
         self.embedding_dim = EMBEDDING_DIM
@@ -40,35 +45,56 @@ class MuseTalkDataset(Dataset):
     def sort_files(files):
         return sorted(files, key=lambda x: int(os.path.basename(x).split(".")[0]))
 
-    def load_filenames(self):
-        for video_name in os.listdir(settings.dataset.images_dir):
-            self.all_data[video_name] = {
-                "image_files": [],
-                "audio_files": [],
-            }
-            # 各个视频对应的图片路径
-            images_dir = os.path.join(settings.dataset.images_dir, video_name)
-            for filename in self.sort_files(os.listdir(images_dir)):
-                self.all_data[video_name]["image_files"].append(
-                    os.path.join(images_dir, filename)
-                )
-            # 各个视频对应的音频路径
-            audios_dir = os.path.join(settings.dataset.audios_dir, video_name)
-            for filename in self.sort_files(os.listdir(audios_dir)):
-                self.all_data[video_name]["audio_files"].append(
-                    os.path.join(audios_dir, filename)
-                )
-            # 保证图片和音频是帧数一样
-            max_length = min(
-                len(self.all_data[video_name]['image_files']),
-                len(self.all_data[video_name]['audio_files']),
-            )
-            self.all_data[video_name]['image_files'] = self.all_data[video_name]['image_files'][:max_length]
-            self.all_data[video_name]['audio_files'] = self.all_data[video_name]['audio_files'][:max_length]
-            # 过滤5秒以下的视频
-            if len(self.all_data[video_name]['image_files']) < 25 * 5:
-                del self.all_data[video_name]
+    def load_filenames_from_json(self):
+        train_data = {}
+        test_data = {}
+        if self.split == 'train':
+            train_path = Path(settings.dataset.base_dir) / 'train.json'
+            with open(train_path, 'r', encoding='utf-8') as f:
+                train_data = json.load(f)
+                self.all_data = train_data
+        if self.split == 'test':
+            train_path = Path(settings.dataset.base_dir) / 'train.json'
+            with open(train_path, 'r', encoding='utf-8') as f:
+                test_data = json.load(f)
+                self.all_data = test_data
+        if self.split == 'all':
+            self.all_data = train_data + test_data
         return self.all_data
+
+    def load_filenames(self):
+        if (self.split == 'train' and (Path(settings.dataset.base_dir) / 'train.json').exists()) or \
+                (self.split == 'test' and (Path(settings.dataset.base_dir) / 'test.json').exists()):
+            return self.load_filenames_from_json()
+        else:
+            for video_name in os.listdir(settings.dataset.images_dir):
+                self.all_data[video_name] = {
+                    "image_files": [],
+                    "audio_files": [],
+                }
+                # 各个视频对应的图片路径
+                images_dir = os.path.join(settings.dataset.images_dir, video_name)
+                for filename in self.sort_files(os.listdir(images_dir)):
+                    self.all_data[video_name]["image_files"].append(
+                        os.path.join(images_dir, filename)
+                    )
+                # 各个视频对应的音频路径
+                audios_dir = os.path.join(settings.dataset.audios_dir, video_name)
+                for filename in self.sort_files(os.listdir(audios_dir)):
+                    self.all_data[video_name]["audio_files"].append(
+                        os.path.join(audios_dir, filename)
+                    )
+                # 保证图片和音频是帧数一样
+                max_length = min(
+                    len(self.all_data[video_name]['image_files']),
+                    len(self.all_data[video_name]['audio_files']),
+                )
+                self.all_data[video_name]['image_files'] = self.all_data[video_name]['image_files'][:max_length]
+                self.all_data[video_name]['audio_files'] = self.all_data[video_name]['audio_files'][:max_length]
+                # 过滤5秒以下的视频
+                if len(self.all_data[video_name]['image_files']) < 25 * 5:
+                    del self.all_data[video_name]
+            return self.all_data
 
     def load_audio_feature_with_window(self, video_name, frame_idx: int):
         # 单帧audio_feature形状为5*2*384
