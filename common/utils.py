@@ -1,11 +1,13 @@
 import os
-import shutil
 import time
+import shutil
 import subprocess
+from uuid import uuid4
 from functools import partial
 from concurrent.futures import ThreadPoolExecutor
 
 import cv2
+import edge_tts
 from tqdm import tqdm
 
 
@@ -85,3 +87,10 @@ def read_images(img_list, grayscale=False, to_rgb=True):
                 frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             frames.append(frame)
     return frames
+
+
+async def tts(message, voice="zh-CN-XiaoxiaoNeural"):
+    voice = edge_tts.Communicate(text=message, voice=voice, rate='-4%', volume='+0%')
+    dst_file = f"tmp/{uuid4().hex}.wav"
+    await voice.save(dst_file)
+    return dst_file
