@@ -100,7 +100,8 @@ def process_videos(video_dir="./datasets/videos", face_shift=None, test_split=0.
     video_list = list(Path(video_dir).glob("*.mp4"))
     all_data = {}
     for video_path in tqdm(video_list, total=len(video_list), desc='Processing videos'):
-        all_data[video_path.stem] = process_video(video_path, face_shift)
+        if video_data := process_video(video_path, face_shift):
+            all_data[video_path.stem] = video_data
 
     keys = list(all_data.keys())
     train_count = int(len(keys) * (1 - test_split))
