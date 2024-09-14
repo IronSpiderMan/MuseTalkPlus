@@ -1,8 +1,9 @@
 import sys
 import shutil
 import asyncio
-from typing import Any
+from queue import Queue
 from pathlib import Path
+from typing import Any, Optional
 
 import cv2
 import torch
@@ -13,11 +14,11 @@ from diffusers import AutoencoderKL
 
 sys.path.append('.')
 from common.setting import settings
-from common.utils import video2images, read_images
+from musetalk.processors import ImageProcessor
+from common.utils import video2images, read_images, tts
+from musetalk.faces.face_analysis import FaceAnalyst
 from musetalk.utils import datagen, images2video, merge_audio_video
 from musetalk.models.musetalk import MuseTalkModel, PositionalEncoding
-from musetalk.processors import ImageProcessor
-from musetalk.faces.face_analysis import FaceAnalyst
 from musetalk.audio.audio_feature_extract import AudioFeatureExtractor
 
 
@@ -66,6 +67,7 @@ class Avatar:
         self.audio_window = 2
         self.face_location = None
         self.default_location = [0, 0, 0, 0]
+        self.inference_results = Queue()
 
         # 初始化数字人需要的相关信息
         self.init_avatar()
@@ -178,14 +180,17 @@ class Avatar:
         del self.face_analyst
 
     @torch.no_grad()
-    def inference(self, audio_path, batch_size=4):
+    def inference(self, audio_path: Optional[str], text: Optional[str], batch_size=4):
+        if text:
+            audio_path = asyncio.run(tts(text))
         self.vid_output_path.mkdir(exist_ok=True)
         self.tmp_path.mkdir(exist_ok=True)
-        frame_idx = self.idx = 0
+        frame_idx = self.idx
         whisper_chunks = self.afe.extract_features(audio_path, self.audio_window)
         gen = datagen(
             whisper_chunks, self.input_latent_cycle, batch_size=batch_size, delay_frames=self.idx,
         )
+        self.inference_results.put('<start>')
         for i, (whisper_batch, latent_batch) in enumerate(
                 tqdm(gen, total=whisper_chunks.shape[0] // batch_size, desc='Inference...')
         ):
@@ -205,31 +210,50 @@ class Avatar:
                 pil_mask = Image.fromarray(self.mask_cycle[frame_idx]).convert('L').crop((x1, y1, x2, y2))
                 pil_frame.paste(pil_face, box=[x1, y1, x2, y2], mask=pil_mask)
                 pil_frame.save(str(self.tmp_path / f'{frame_idx:08d}.jpg'))
-                frame_idx += 1
-                self.idx += 1
-        tmp_video_path = self.vid_output_path / (Path(audio_path).stem + '_tmp.mp4')
-        video_path = self.vid_output_path / (Path(audio_path).stem + '.mp4')
-        images2video(self.tmp_path, tmp_video_path)
-        merge_audio_video(tmp_video_path, audio_path, video_path)
-        tmp_video_path.unlink()
-        shutil.rmtree(self.tmp_path)
-        return video_path
+                frame_idx = self.increase_idx()
+                self.inference_results.put(np.array(pil_frame))
+        self.inference_results.put('<end>')
+        # tmp_video_path = self.vid_output_path / (Path(audio_path).stem + '_tmp.mp4')
+        # video_path = self.vid_output_path / (Path(audio_path).stem + '.mp4')
+        # images2video(self.tmp_path, tmp_video_path)
+        # merge_audio_video(tmp_video_path, audio_path, video_path)
+        # if tmp_video_path.exists():
+        #     tmp_video_path.unlink()
+        # shutil.rmtree(self.tmp_path)
+        # return video_path
 
     def increase_idx(self):
-        self.idx = self.idx + 1 % len(self.frame_cycle)
+        self.idx = (self.idx + 1) % len(self.frame_cycle)
+        return self.idx
 
     async def next_frame(self):
+        inferencing = False
         while True:
-            yield self.frame_cycle[self.idx][:, :, ::-1]
-            self.increase_idx()
-            await asyncio.sleep(1 / settings.common.fps)
+            # 如果正在推理
+            try:
+                if not inferencing:
+                    flag = self.inference_results.get_nowait()
+                else:
+                    flag = self.inference_results.get()
+                if isinstance(flag, str) and flag == '<start>':
+                    inferencing = True
+                elif isinstance(flag, str) and flag == '<end>':
+                    inferencing = False
+                if isinstance(flag, np.ndarray):
+                    yield flag[:, :, ::-1]
+                    await asyncio.sleep(1 / settings.common.fps)
+            except Exception as e:
+                pass
+            # 如果不在推理
+            if not inferencing:
+                yield self.frame_cycle[self.idx][:, :, ::-1]
+                self.increase_idx()
+                await asyncio.sleep(1 / settings.common.fps)
 
 
 def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     avatar = Avatar('111', r'F:\Workplace\MuseTalkPlus\data\video\zack.mp4', device=device)
-    # avatar.inference('./data/audio/out.mp3')
-    # avatar.inference(r'F:\Workplace\MuseTalkPlus\data\audio\zack.mp3')
     avatar.inference(r'F:\Workplace\MuseTalkPlus\data\audio\00000002.mp3')
 
 
