@@ -1,7 +1,28 @@
 import torch
 from torch import nn
+import torch.nn.functional as F
 
 sync_t = 5
+
+
+class ContrastiveLoss(nn.Module):
+    def __init__(self, margin=1.0):
+        super(ContrastiveLoss, self).__init__()
+        self.margin = margin
+
+    def forward(self, output1, output2, label):
+        # 计算欧氏距离
+        euclidean_distance = F.pairwise_distance(output1, output2)
+
+        # 相似样本对损失
+        loss_positive = label * torch.pow(euclidean_distance, 2)
+
+        # 不相似样本对损失
+        loss_negative = (1 - label) * torch.pow(torch.clamp(self.margin - euclidean_distance, min=0.0), 2)
+
+        # 总损失
+        loss = torch.mean(loss_positive + loss_negative) / 2
+        return loss
 
 
 class Conv2d(nn.Module):
@@ -89,6 +110,7 @@ class SyncNet(nn.Module):
         image_embeddings = self.face_encoder(images)
         audio_embeddings = self.audio_encoder(audios)
         return image_embeddings, audio_embeddings
+        # return F.cosine_similarity(image_embeddings, audio_embeddings)
 
 
 if __name__ == '__main__':

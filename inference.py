@@ -28,7 +28,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--batch_size",
         type=int,
-        default=4,
+        default=16,
     )
     parser.add_argument(
         "--realtime",

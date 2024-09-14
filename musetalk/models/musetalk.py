@@ -2,7 +2,6 @@ import math
 
 import torch
 from torch import nn
-import numpy as np
 from diffusers import UNet2DConditionModel
 
 

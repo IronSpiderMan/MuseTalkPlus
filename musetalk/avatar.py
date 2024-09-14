@@ -1,5 +1,6 @@
 import sys
 import shutil
+import asyncio
 from typing import Any
 from pathlib import Path
 
@@ -14,7 +15,7 @@ sys.path.append('.')
 from common.setting import settings
 from common.utils import video2images, read_images
 from musetalk.utils import datagen, images2video, merge_audio_video
-from musetalk.models import MuseTalkModel, PositionalEncoding
+from musetalk.models.musetalk import MuseTalkModel, PositionalEncoding
 from musetalk.processors import ImageProcessor
 from musetalk.faces.face_analysis import FaceAnalyst
 from musetalk.audio.audio_feature_extract import AudioFeatureExtractor
@@ -192,7 +193,6 @@ class Avatar:
             whisper_batch = self.pe(whisper_batch)
             latent_batch = latent_batch.to(self.device, dtype=self.dtype)
             pred_latents = self.unet((latent_batch, whisper_batch))
-            # pred_latents = latent_batch[:, 4:, :, :]
             pred_latents = (1 / self.vae.config.scaling_factor) * pred_latents
             pred_images = self.vae.decode(pred_latents).sample
             for idx, pred_image in enumerate(pred_images.cpu()):
@@ -213,9 +213,16 @@ class Avatar:
         merge_audio_video(tmp_video_path, audio_path, video_path)
         tmp_video_path.unlink()
         shutil.rmtree(self.tmp_path)
+        return video_path
 
     def increase_idx(self):
         self.idx = self.idx + 1 % len(self.frame_cycle)
+
+    async def next_frame(self):
+        while True:
+            yield self.frame_cycle[self.idx][:, :, ::-1]
+            self.increase_idx()
+            await asyncio.sleep(1 / settings.common.fps)
 
 
 def main():
